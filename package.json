@@ -1,0 +1,54 @@
+{
+  "name": "weatherhub-monorepo",
+  "version": "1.0.0",
+  "description": "WeatherHub - A modern weather application with Next.js frontend and Express backend",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "bun run --parallel dev:frontend dev:backend",
+    "dev:frontend": "cd frontend && bun run dev",
+    "dev:backend": "cd backend && bun run dev",
+    "build": "bun run build:frontend && bun run build:backend",
+    "build:frontend": "cd frontend && bun run build",
+    "build:backend": "cd backend && bun run build",
+    "start": "bun run --parallel start:frontend start:backend",
+    "start:frontend": "cd frontend && bun run start",
+    "start:backend": "cd backend && bun run start",
+    "lint": "bun run lint:frontend && bun run lint:backend",
+    "lint:frontend": "cd frontend && bun run lint",
+    "lint:backend": "cd backend && bun run lint",
+    "test": "bun run test:frontend && bun run test:backend",
+    "test:frontend": "cd frontend && bun run test",
+    "test:backend": "cd backend && bun run test",
+    "clean": "bun run clean:frontend && bun run clean:backend",
+    "clean:frontend": "cd frontend && rm -rf .next out node_modules",
+    "clean:backend": "cd backend && rm -rf dist node_modules",
+    "install:all": "bun install && cd frontend && bun install && cd ../backend && bun install"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JarYin/WeatherHub.git"
+  },
+  "keywords": [
+    "weather",
+    "nextjs",
+    "express",
+    "typescript",
+    "monorepo",
+    "react"
+  ],
+  "author": "JarYin",
+  "license": "MIT"
+}

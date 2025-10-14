@@ -1,0 +1,68 @@
+{
+  "folders": [
+    {
+      "name": "WeatherHub (Root)",
+      "path": "."
+    },
+    {
+      "name": "Frontend",
+      "path": "./frontend"
+    },
+    {
+      "name": "Backend", 
+      "path": "./backend"
+    }
+  ],
+  "settings": {
+    "typescript.preferences.includePackageJsonAutoImports": "auto",
+    "typescript.suggest.autoImports": true,
+    "eslint.workingDirectories": ["frontend", "backend"],
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/.next": true,
+      "**/out": true
+    },
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/.git": false,
+      "**/.DS_Store": true
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "bradlc.vscode-tailwindcss",
+      "ms-vscode.vscode-typescript-next",
+      "esbenp.prettier-vscode",
+      "ms-vscode.vscode-eslint",
+      "ms-vscode.vscode-json"
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Launch Frontend",
+        "type": "node",
+        "request": "launch",
+        "cwd": "${workspaceFolder}/frontend",
+        "runtimeExecutable": "bun",
+        "runtimeArgs": ["run", "dev"]
+      },
+      {
+        "name": "Launch Backend",
+        "type": "node", 
+        "request": "launch",
+        "cwd": "${workspaceFolder}/backend",
+        "runtimeExecutable": "bun",
+        "runtimeArgs": ["run", "dev"]
+      }
+    ],
+    "compounds": [
+      {
+        "name": "Launch Full Stack",
+        "configurations": ["Launch Frontend", "Launch Backend"]
+      }
+    ]
+  }
+}
