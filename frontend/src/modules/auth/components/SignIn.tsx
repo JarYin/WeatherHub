@@ -17,6 +17,12 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  function handleFormChange() {
+    setEmail("demo@example.com");
+    setPassword("password");
+    console.log("Demo user credentials filled:", email, password);
+  }
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setIsLoading(true);
@@ -25,6 +31,7 @@ export default function SignIn() {
       setIsLoading(false);
       alert(`Signed in as ${email}`);
     }, 2000);
+    clearTimeout();
   }
   return (
     <>
@@ -42,6 +49,11 @@ export default function SignIn() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-2">
             <div>
+              <div className="hover:bg-blue-50 rounded" onClick={() => handleFormChange()}>
+                <p className="font-bold w-full cursor-pointer bg-gradient-to-r from-blue-600 to-indigo-400 text-transparent bg-clip-text rounded py-2 text-center">
+                  Demo User: demo@example.com
+                </p>
+              </div>
               <Label htmlFor="email">Email</Label>
               <Input
                 type="email"
