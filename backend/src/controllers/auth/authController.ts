@@ -84,4 +84,29 @@ export class AuthController {
             next(err);
         }
     }
+
+    async getMe(req: Request, res: Response, next: NextFunction) {
+        try {
+            // Get user ID from JWT middleware (req.user is set by authMiddleware)
+            const userId = req.user?.id;
+            console.log('getMe userId:', userId);
+            console.log('getMe req.user:', req.user);
+
+            if (!userId) {
+                return res.status(401).json({ success: false, error: { message: 'User not authenticated' } });
+            }
+
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+
+            if (!user) {
+                return res.status(404).json({ success: false, error: { message: 'User not found' } });
+            }
+
+            const { password, ...userWithoutPassword } = user;
+
+            return res.json({ success: true, data: userWithoutPassword });
+        } catch (err) {
+            next(err);
+        }
+    }
 }

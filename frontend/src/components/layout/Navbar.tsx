@@ -12,6 +12,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/modules/auth/api/signOutApi";
+import Link from "next/link";
 
 export default function Navbar() {
   const { theme, setTheme } = useTheme();
@@ -47,17 +48,17 @@ export default function Navbar() {
 
         <div className={`flex items-center gap-2 ml-5 hover:bg-gray-100 ${theme === "dark" && "hover:text-black"} p-2 rounded cursor-pointer`}>
           <Cloud className="w-4 h-4" />
-          <span className="font-bold">Dashboard</span>
+          <Link href={"/dashboard"} className="font-bold">Dashboard</Link>
         </div>
 
         <div className={`flex items-center gap-2 ml-5 hover:bg-gray-100 ${theme === "dark" && "hover:text-black"} p-2 rounded cursor-pointer`}>
           <MapPin className="w-4 h-4" />
-          <span className="font-bold">Locations</span>
+          <Link href={"/dashboard/locations"} className="font-bold">Locations</Link>
         </div>
 
         <div className={`flex items-center gap-2 ml-5 hover:bg-gray-100 ${theme === "dark" && "hover:text-black"} p-2 rounded cursor-pointer`}>
           <ChartColumnStacked className="w-4 h-4" />
-          <span className="font-bold">Compare</span>
+          <Link href={"/dashboard/compare"} className="font-bold">Compare</Link>
         </div>
       </div>
 

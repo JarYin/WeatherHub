@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import weatherRoutes from './weather.ts';
+import weatherRoutes from './weatherRoutes.ts';
 import authRoutes from './auth.ts';
 
 const router = Router();
@@ -16,6 +16,7 @@ router.get('/', (req, res) => {
     endpoints: {
       weather: '/api/weather',
       auth: '/api/auth',
+      test: '/api/test',
       health: '/health',
     },
   });
