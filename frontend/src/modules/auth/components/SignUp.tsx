@@ -15,6 +15,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { FieldError } from "@/components/ui/field";
 import { useState } from "react";
+import { signUp } from "../api/signUpApi";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export default function SignUp() {
   const form = useForm<SignUpData>({
@@ -25,16 +28,24 @@ export default function SignUp() {
       confirmPassword: "",
     },
   });
-
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  function onSubmit(data: SignUpData) {
-    setLoading(true);
-    // Simulate an API call
-    setTimeout(() => {
+  async function onSubmit(data: SignUpData) {
+    try {
+      setLoading(true);
+      const response = await signUp(data);
+      if (response.success) {
+        toast.success("Account created successfully! You can now sign in.");
+        router.push("/");
+      }
+    } catch (error: any) {
+      const message =
+        error.response?.data?.error?.message || "Something went wrong";
+      toast.error(message);
+    } finally {
       setLoading(false);
-      alert(`Account created for ${data.email}`);
-    }, 2000);
+    }
   }
   return (
     <>
@@ -120,7 +131,11 @@ export default function SignUp() {
                 );
               }}
             />
-            <Button type="submit" disabled={loading} className="w-full btn btn-primary mt-4">
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full btn btn-primary mt-4"
+            >
               {loading ? "Creating..." : "Sign Up"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">

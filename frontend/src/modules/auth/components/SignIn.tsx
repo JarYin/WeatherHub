@@ -11,27 +11,39 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@radix-ui/react-label";
 import Link from "next/link";
 import { useState } from "react";
+import { signInApi } from "../api/signInApi";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { getSession, setSession } from "@/lib/session";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   function handleFormChange() {
     setEmail("demo@example.com");
     setPassword("password");
-    console.log("Demo user credentials filled:", email, password);
   }
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setIsLoading(true);
-    // Simulate an API call
-    setTimeout(() => {
+  async function handleSubmit(event: React.FormEvent) {
+    try {
+      event.preventDefault();
+      setIsLoading(true);
+      const response = await signInApi({ email, password });
+      if (response) {
+        router.push("/dashboard");
+      } else {
+        toast.error("Login failed");
+      }
+    } catch (error: any) {
+      const message =
+        error.response?.data?.error?.message || "Something went wrong";
+      toast.error(message);
+    } finally {
       setIsLoading(false);
-      alert(`Signed in as ${email}`);
-    }, 2000);
-    clearTimeout();
+    }
   }
   return (
     <>
@@ -44,16 +56,18 @@ export default function SignIn() {
             <p className="text-muted-foreground">
               Enter your credentials to access the dashboard
             </p>
+            <Button
+              onClick={() => handleFormChange()}
+              variant={"outline"}
+              className="block w-full"
+            >
+              Demo User: demo@example.com
+            </Button>
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-2">
             <div>
-              <div className="hover:bg-blue-50 rounded" onClick={() => handleFormChange()}>
-                <p className="font-bold w-full cursor-pointer bg-gradient-to-r from-blue-600 to-indigo-400 text-transparent bg-clip-text rounded py-2 text-center">
-                  Demo User: demo@example.com
-                </p>
-              </div>
               <Label htmlFor="email">Email</Label>
               <Input
                 type="email"

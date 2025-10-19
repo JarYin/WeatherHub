@@ -12,22 +12,16 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ): void => {
-  let error = { ...err };
-  error.message = err.message;
-
   // Log error
-  console.error(err);
+  console.error('🔥 Error:', err);
 
-  // Default error
-  if (!error.statusCode) {
-    error.statusCode = 500;
-    error.message = 'Internal Server Error';
-  }
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal Server Error';
 
-  res.status(error.statusCode || 500).json({
+  res.status(statusCode).json({
     success: false,
     error: {
-      message: error.message,
+      message,
       ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
     },
   });
