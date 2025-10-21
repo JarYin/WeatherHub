@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { WeatherService } from '../services/weatherService.ts';
+import { WeatherService } from '../services/weatherService';
 
 export class WeatherController {
   private weatherService: WeatherService;

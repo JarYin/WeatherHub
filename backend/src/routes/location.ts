@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, NextFunction } from 'express';
-import { LocationController } from "../controllers/location/locationController.ts";
-import { authMiddleware } from "../middleware/authMiddleware.ts";
+import { LocationController } from '../controllers/location/locationController';
+import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
 router.use(authMiddleware);

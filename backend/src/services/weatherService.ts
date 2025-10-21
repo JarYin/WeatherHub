@@ -1,4 +1,4 @@
-import type { WeatherData, ForecastData, CitySearchResult } from '../models/weather.js';
+import type { WeatherData, ForecastData, CitySearchResult } from '../models/weather';
 
 export class WeatherService {
   private apiKey: string;

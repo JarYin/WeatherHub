@@ -32,7 +32,7 @@ export default function DashboardLayout({
         disableTransitionOnChange
       >
         <Navbar />
-        {children}
+        <main className="pt-16">{children}</main>
         <Toaster />
       </ThemeProvider>
     </>

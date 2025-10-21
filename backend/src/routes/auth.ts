@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
-import { AuthController } from '../controllers/auth/authController.ts';
-import { authMiddleware } from '../middleware/authMiddleware.ts';
+import { AuthController } from '../controllers/auth/authController';
+import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
 const authController = new AuthController();

@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import weatherRoutes from './weatherRoutes.ts';
-import authRoutes from './auth.ts';
-import locationRoutes from './location.ts';
+import weatherRoutes from './weatherRoutes';
+import authRoutes from './auth';
+import locationRoutes from './location';
 
 const router = Router();
 
