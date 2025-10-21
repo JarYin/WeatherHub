@@ -14,7 +14,6 @@ import { useState } from "react";
 import { signInApi } from "../api/signInApi";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { getSession, setSession } from "@/lib/session";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");

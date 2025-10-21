@@ -109,7 +109,10 @@ export default function LocationsManager() {
       }));
       setLocations(normalized);
     } catch (error) {
-      toast.error("Failed to delete location.");
+      if (error) {
+        toast.error("Failed to delete location.");
+      }
+
       return;
     }
   };
@@ -150,7 +153,9 @@ export default function LocationsManager() {
       toast.success("Location updated.");
       setEditingId(null);
     } catch (error) {
-      toast.error("Failed to update location.");
+      if (error) {
+        toast.error("Failed to update location.");
+      }
       return;
     }
   };

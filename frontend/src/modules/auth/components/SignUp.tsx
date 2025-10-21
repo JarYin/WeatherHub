@@ -3,7 +3,6 @@ import { Button } from "@/components/animate-ui/components/buttons/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";

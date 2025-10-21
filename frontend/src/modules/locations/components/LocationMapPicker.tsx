@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MapPin, Search } from "lucide-react";
 import L from "leaflet";
-import { createLocation, fetchLocations } from "../api/locationApi";
+import { createLocation } from "../api/locationApi";
 
 interface LocationMapPickerProps {
   onLocationSelect: (submit: boolean) => void;
