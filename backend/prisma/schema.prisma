@@ -12,19 +12,24 @@ model User {
   email      String      @unique
   password   String
   createdAt  DateTime    @default(now())
+
+  Location Location[]
 }
 
 model Location {
   id         String          @id @default(uuid())
+  userId     String?
   name       String
   lat        Float
   lon        Float
   timezone   String
   isActive   Boolean         @default(true)
+  isDefault  Boolean         @default(false)
   createdAt  DateTime        @default(now())
   weather    Weather[]
   summary    DailySummary[]
   ingestJobs IngestJob[]
+  user       User?          @relation(fields: [userId], references: [id])
 }
 
 model Weather {

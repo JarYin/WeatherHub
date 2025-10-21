@@ -12,35 +12,94 @@ import { Button } from "@/components/animate-ui/components/buttons/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MapPin, Search } from "lucide-react";
+import L from "leaflet";
+import { createLocation, fetchLocations } from "../api/locationApi";
 
 interface LocationMapPickerProps {
-  onLocationSelect: (location: {
-    name: string;
-    lat: number;
-    lon: number;
-  }) => void;
+  onLocationSelect: (submit: boolean) => void;
 }
 
 export function LocationMapPicker({
   onLocationSelect,
 }: LocationMapPickerProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<any>(null);
-  const [marker, setMarker] = useState<any>(null);
+  const [map, setMap] = useState<L.Map | null>(null);
+  const [marker, setMarker] = useState<L.Marker | null>(null);
   const [selectedCoords, setSelectedCoords] = useState<{
     lat: number;
     lon: number;
   } | null>(null);
   const [cityName, setCityName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [timezone, setTimezone] = useState<string>("");
+
+  const fetchTimezone = async (lat: number, lon: number) => {
+    try {
+      const response = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+      );
+      const data = await response.json();
+      const timezoneObject = data.localityInfo.informative?.find(
+        (item: any) => item.description === "time zone"
+      );
+      console.log("Fetched timezone object:", timezoneObject);
+      if (timezoneObject && timezoneObject.name) {
+        setTimezone(timezoneObject.name);
+      } else {
+        setTimezone("N/A");
+      }
+    } catch (error) {
+      console.error("Error fetching timezone:", error);
+      setTimezone("Error");
+    }
+  };
+
+  const reverseGeocode = async (lat: number, lon: number) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+      );
+      const data = await response.json();
+      if (data && data.display_name) {
+        setCityName(data.display_name);
+      } else {
+        setCityName("Unknown location");
+      }
+    } catch (error) {
+      console.error("Error fetching address:", error);
+      setCityName("Could not fetch address");
+    }
+  };
+
+  const updateLocation = (lat: number, lon: number, name?: string) => {
+    setSelectedCoords({ lat, lon });
+    fetchTimezone(lat, lon);
+
+    import("leaflet").then((L) => {
+      if (map) {
+        if (marker) {
+          marker.setLatLng([lat, lon]);
+        } else {
+          const newMarker = L.marker([lat, lon]).addTo(map);
+          setMarker(newMarker);
+        }
+        map.setView([lat, lon], 13);
+      }
+    });
+
+    if (name) {
+      setCityName(name);
+    } else {
+      reverseGeocode(lat, lon);
+    }
+  };
 
   useEffect(() => {
     if (typeof window === "undefined" || !mapRef.current) return;
 
     (async () => {
       const L = await import("leaflet");
-
-      // Fix default marker icons
       delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl:
@@ -50,87 +109,64 @@ export function LocationMapPicker({
           "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
       });
 
-      // 🧠 ป้องกัน map ซ้ำ — ลบของเก่าออกก่อนถ้ามี
-            const mapEl = mapRef.current;
-            if (mapEl && (mapEl as any)?._leaflet_id) {
-              const existingMap = (mapEl as any)._leaflet_map_instance;
-              if (existingMap) {
-                existingMap.remove();
-              }
-              mapEl.removeAttribute("data-leaflet-id");
-            }
+      if (mapRef.current && !(mapRef.current as any)._leaflet_id) {
+        const mapInstance = L.map(mapRef.current!).setView(
+          [13.7563, 100.5018],
+          5
+        );
 
-      // ✅ สร้าง map ใหม่
-      const mapInstance = L.map(mapRef.current!).setView([20, 0], 2);
-      (mapRef.current as any)._leaflet_map_instance = mapInstance;
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        }).addTo(mapInstance);
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }).addTo(mapInstance);
+        mapInstance.on("click", (e: L.LeafletMouseEvent) => {
+          const { lat, lng } = e.latlng;
+          updateLocation(lat, lng);
+        });
 
-      mapInstance.on("click", (e: L.LeafletMouseEvent) => {
-        const { lat, lng } = e.latlng;
-        if (marker) {
-          marker.setLatLng([lat, lng]);
-        } else {
-          const newMarker = L.marker([lat, lng]).addTo(mapInstance);
-          setMarker(newMarker);
-        }
-      });
-
-      setMap(mapInstance);
-
-      // 🧹 Cleanup map เมื่อ component unmount
-      return () => {
-        mapInstance.remove();
-      };
+        setMap(mapInstance);
+      }
     })();
   }, []);
 
   const handleSearch = async () => {
     if (!searchQuery || !map) return;
+    setIsLoading(true);
 
-    // Simulate geocoding (in production, use a real geocoding API like Nominatim)
-    const mockResults: Record<string, { lat: number; lon: number }> = {
-      tokyo: { lat: 35.6762, lon: 139.6503 },
-      london: { lat: 51.5074, lon: -0.1278 },
-      "new york": { lat: 40.7128, lon: -74.006 },
-      paris: { lat: 48.8566, lon: 2.3522 },
-      sydney: { lat: -33.8688, lon: 151.2093 },
-      bangkok: { lat: 13.7563, lon: 100.5018 },
-      "chiang mai": { lat: 18.7883, lon: 98.9853 },
-    };
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+          searchQuery
+        )}&format=json&limit=1`
+      );
+      const data = await response.json();
 
-    const query = searchQuery.toLowerCase();
-    const result = mockResults[query];
-
-    if (result) {
-      const { lat, lon } = result;
-      setSelectedCoords({ lat, lon });
-      setCityName(searchQuery);
-
-      // Import Leaflet dynamically
-      import("leaflet").then((L) => {
-        map.setView([lat, lon], 10);
-
-        if (marker) {
-          marker.setLatLng([lat, lon]);
-        } else {
-          const newMarker = L.marker([lat, lon]).addTo(map);
-          setMarker(newMarker);
-        }
-      });
+      if (data && data.length > 0) {
+        const result = data[0];
+        const lat = parseFloat(result.lat);
+        const lon = parseFloat(result.lon);
+        updateLocation(lat, lon, result.display_name);
+      } else {
+        alert("Location not found.");
+      }
+    } catch (error) {
+      console.error("Error during geocoding:", error);
+      alert("An error occurred while searching.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleConfirm = () => {
-    if (selectedCoords && cityName) {
-      onLocationSelect({
+  const handleConfirm = async () => {
+    if (selectedCoords && cityName && timezone) {
+      await createLocation({
         name: cityName,
         lat: selectedCoords.lat,
         lon: selectedCoords.lon,
+        timezone: timezone,
       });
+      onLocationSelect(true);
     }
   };
 
@@ -152,9 +188,12 @@ export function LocationMapPicker({
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
               className="pl-10"
+              disabled={isLoading}
             />
           </div>
-          <Button onClick={handleSearch}>Search</Button>
+          <Button onClick={handleSearch} disabled={isLoading}>
+            {isLoading ? "Searching..." : "Search"}
+          </Button>
         </div>
 
         <div className="relative w-full h-[400px] rounded-lg overflow-hidden border border-border">
@@ -173,10 +212,10 @@ export function LocationMapPicker({
                 id="location-name"
                 value={cityName}
                 onChange={(e) => setCityName(e.target.value)}
-                placeholder="Enter city name"
+                placeholder="Enter location name"
               />
             </div>
-            <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
               <div>
                 <span className="text-muted-foreground">Latitude:</span>
                 <span className="ml-2 font-mono">
@@ -189,6 +228,12 @@ export function LocationMapPicker({
                   {selectedCoords.lon.toFixed(4)}
                 </span>
               </div>
+              {timezone && (
+                <div>
+                  <span className="text-muted-foreground">Timezone:</span>
+                  <span className="ml-2 font-mono">{timezone}</span>
+                </div>
+              )}
             </div>
             <Button onClick={handleConfirm} className="w-full gap-2">
               <MapPin className="h-4 w-4" />
