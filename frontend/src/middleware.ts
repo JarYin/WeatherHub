@@ -1,24 +1,25 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import jwt from 'jsonwebtoken';
 
-export async function middleware(request: NextRequest) {
-    const { pathname } = request.nextUrl;
+export async function middleware(req: NextRequest) {
+  const token = req.cookies.get('session')?.value;
+  const url = req.nextUrl.clone();
 
-    if (pathname === '/') {
-        return NextResponse.next();
-    }
+  if (!token) {
+    url.pathname = '/';
+    return NextResponse.redirect(url);
+  }
 
-    const token = request.cookies.get('session')?.value;
-
-    if (!token) {
-        const loginUrl = request.nextUrl.clone();
-        loginUrl.pathname = '/';
-        return NextResponse.redirect(loginUrl);
-    }
-
+  try {
+    jwt.verify(token, process.env.JWT_SECRET!);
     return NextResponse.next();
+  } catch {
+    url.pathname = '/';
+    return NextResponse.redirect(url);
+  }
 }
 
 export const config = {
-    matcher: ['/dashboard/:path*'],
+  matcher: ['/dashboard/:path*'],
 };
