@@ -59,7 +59,7 @@ export class AuthController {
                 httpOnly: true,
                 secure: true,
                 maxAge: 7 * 24 * 60 * 60 * 1000,
-                sameSite: 'none',
+                sameSite: 'lax',
                 path: '/',
             });
 
@@ -74,7 +74,7 @@ export class AuthController {
             res.clearCookie('session', {
                 httpOnly: true,
                 secure: true,
-                sameSite: 'none',
+                sameSite: 'lax',
                 maxAge: 0,
                 path: '/',
             });
