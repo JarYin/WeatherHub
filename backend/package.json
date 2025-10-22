@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "bun --watch src/server.ts",
     "dev:nodemon": "bunx nodemon --watch src --ext ts,js --exec \"bun run ./src/server.ts\"",
-    "build": "tsc && node add-extensions.mjs",
+    "build": "bunx tsc && node add-extensions.mjs",
     "start": "node dist/server.js",
     "lint": "eslint src/**/*.ts",
     "test": "bun test"
