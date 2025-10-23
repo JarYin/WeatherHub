@@ -12,7 +12,19 @@ const app = express();
 
 // Security middleware
 app.use(helmet());
-//
+
+const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3000';
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (origin && origin !== allowedOrigin) {
+    console.warn(`Blocked request from origin: ${origin}`);
+    return res.status(403).json({ error: 'Forbidden: Invalid Origin' });
+  }
+
+  next();
+});
+
 // CORS configuration
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
