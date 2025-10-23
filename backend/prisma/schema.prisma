@@ -30,25 +30,22 @@ model Location {
   summary    DailySummary[]
   ingestJobs IngestJob[]
   user       User?          @relation(fields: [userId], references: [id])
+  @@unique([userId, name])
 }
 
 model Weather {
-  id           String      @id @default(uuid())
-  locationId   String
+  id           Int      @id @default(autoincrement())
+  location_id  String
   timestamp    DateTime
-  temp_c       Float
-  humidity     Float
-  wind_ms      Float
-  rain_mm      Float
-  condition    Int
-  createdAt    DateTime     @default(now())
-  ingestSource String?
-  ingestJobId  String?
+  temperature  Float?
+  humidity     Float?
+  rain_mm      Float?
+  wind_speed   Float?
+  weather_code Int?
+  granularity  String
 
-  location     Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
-
-  @@unique([locationId, timestamp])  // กันข้อมูลซ้ำในแต่ละ location+time
-  @@index([timestamp])
+  location     Location @relation(fields: [location_id], references: [id])
+  @@unique([location_id, timestamp, granularity])
 }
 
 model DailySummary {

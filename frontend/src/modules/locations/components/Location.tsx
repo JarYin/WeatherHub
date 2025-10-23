@@ -162,34 +162,60 @@ export default function LocationsManager() {
 
   const handleAdd = async () => {
     if (newLocation.name && newLocation.lat && newLocation.lon) {
-      await createLocation({
-        name: newLocation.name,
-        lat: parseFloat(newLocation.lat),
-        lon: parseFloat(newLocation.lon),
-        timezone: newLocation.timezone,
-      });
-      const response = await fetchLocations();
-      const normalized: Location[] = (response as any[]).map((r) => ({
-        id: r.id,
-        name: r.name ?? "",
-        lat: Number(r.lat ?? 0),
-        lon: Number(r.lon ?? 0),
-        timezone: r.timezone ?? "UTC",
-        isDefault: !!r.isDefault,
-      }));
-      const newLoc = normalized.find(
-        (loc) =>
-          loc.name === newLocation.name &&
-          loc.lat === parseFloat(newLocation.lat) &&
-          loc.lon === parseFloat(newLocation.lon)
-      );
-      if (!newLoc) {
-        toast.error("Failed to add location.");
-        return;
+      try {
+        const serverResponse = await createLocation({
+          name: newLocation.name,
+          lat: parseFloat(newLocation.lat),
+          lon: parseFloat(newLocation.lon),
+          timezone: newLocation.timezone,
+        });
+
+        if (!serverResponse || !serverResponse.data.id) {
+          toast.error("Failed to add or update location.");
+          return;
+        }
+
+        const processedLoc: Location = {
+          id: serverResponse.data.id,
+          name: serverResponse.data.name ?? "",
+          lat: Number(serverResponse.data.lat ?? 0),
+          lon: Number(serverResponse.data.lon ?? 0),
+          timezone: serverResponse.data.timezone ?? "UTC",
+          isDefault: !!serverResponse.data.isDefault,
+        };
+
+        const existingIndex = locations.findIndex(
+          (loc) => loc.id === processedLoc.id
+        );
+        
+        setLocations((prevLocations) => {
+          const existingIdx = prevLocations.findIndex(
+            (loc) => loc.id === processedLoc.id
+          );
+
+          if (existingIdx > -1) {
+            const newArray = [...prevLocations];
+            newArray[existingIdx] = processedLoc;
+            return newArray;
+          } else {
+            return [...prevLocations, processedLoc];
+          }
+        });
+
+        setNewLocation({
+          name: "",
+          lat: "",
+          lon: "",
+          timezone: "Asia/Bangkok",
+        });
+        setIsAddDialogOpen(false);
+        toast.success(
+          existingIndex > -1 ? "Location updated." : "Location added!"
+        );
+      } catch (error) {
+        console.error("Error in handleAdd:", error);
+        toast.error("An error occurred processing the location.");
       }
-      setLocations([...locations, newLoc]);
-      setNewLocation({ name: "", lat: "", lon: "", timezone: "Asia/Bangkok" });
-      setIsAddDialogOpen(false);
     }
   };
 
@@ -219,107 +245,107 @@ export default function LocationsManager() {
             <DialogHeader>
               <DialogTitle>Add New Location</DialogTitle>
               <DialogDescription>
-          Choose a method to add a new weather tracking location
+                Choose a method to add a new weather tracking location
               </DialogDescription>
             </DialogHeader>
             <Tabs defaultValue="map" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="map" className="gap-2">
-            <Map className="h-4 w-4" />
-            Map Selection
-          </TabsTrigger>
-          <TabsTrigger value="manual" className="gap-2">
-            <MapPin className="h-4 w-4" />
-            Manual Entry
-          </TabsTrigger>
+                <TabsTrigger value="map" className="gap-2">
+                  <Map className="h-4 w-4" />
+                  Map Selection
+                </TabsTrigger>
+                <TabsTrigger value="manual" className="gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Manual Entry
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="map" className="mt-4">
-          <LocationMapPicker onLocationSelect={handleNewLocationChange} />
+                <LocationMapPicker onLocationSelect={handleNewLocationChange} />
               </TabsContent>
               <TabsContent value="manual" className="mt-4">
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle>Enter Location Details</CardTitle>
-              <CardDescription>
-                Manually enter the coordinates and details
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="space-y-2">
-            <Label htmlFor="name">City Name</Label>
-            <Input
-              id="name"
-              placeholder="e.g., Tokyo"
-              value={newLocation.name}
-              onChange={(e) =>
-                setNewLocation({
-                  ...newLocation,
-                  name: e.target.value,
-                })
-              }
-            />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="lat">Latitude</Label>
-              <Input
-                id="lat"
-                type="number"
-                step="0.0001"
-                placeholder="35.6762"
-                value={newLocation.lat}
-                onChange={(e) =>
-                  setNewLocation({
-              ...newLocation,
-              lat: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lon">Longitude</Label>
-              <Input
-                id="lon"
-                type="number"
-                step="0.0001"
-                placeholder="139.6503"
-                value={newLocation.lon}
-                onChange={(e) =>
-                  setNewLocation({
-              ...newLocation,
-              lon: e.target.value,
-                  })
-                }
-              />
-            </div>
-                </div>
-                <div className="space-y-2">
-            <Label htmlFor="timezone">Timezone</Label>
-            <Input
-              id="timezone"
-              placeholder="Asia/Tokyo"
-              value={newLocation.timezone}
-              onChange={(e) =>
-                setNewLocation({
-                  ...newLocation,
-                  timezone: e.target.value,
-                })
-              }
-            />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => setIsAddDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleAdd}>Add Location</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                <Card className="border-border/50">
+                  <CardHeader>
+                    <CardTitle>Enter Location Details</CardTitle>
+                    <CardDescription>
+                      Manually enter the coordinates and details
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">City Name</Label>
+                        <Input
+                          id="name"
+                          placeholder="e.g., Tokyo"
+                          value={newLocation.name}
+                          onChange={(e) =>
+                            setNewLocation({
+                              ...newLocation,
+                              name: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="lat">Latitude</Label>
+                          <Input
+                            id="lat"
+                            type="number"
+                            step="0.0001"
+                            placeholder="35.6762"
+                            value={newLocation.lat}
+                            onChange={(e) =>
+                              setNewLocation({
+                                ...newLocation,
+                                lat: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="lon">Longitude</Label>
+                          <Input
+                            id="lon"
+                            type="number"
+                            step="0.0001"
+                            placeholder="139.6503"
+                            value={newLocation.lon}
+                            onChange={(e) =>
+                              setNewLocation({
+                                ...newLocation,
+                                lon: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="timezone">Timezone</Label>
+                        <Input
+                          id="timezone"
+                          placeholder="Asia/Tokyo"
+                          value={newLocation.timezone}
+                          onChange={(e) =>
+                            setNewLocation({
+                              ...newLocation,
+                              timezone: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsAddDialogOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button onClick={handleAdd}>Add Location</Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </TabsContent>
             </Tabs>
           </DialogContent>

@@ -24,16 +24,33 @@ export class LocationController {
     try {
       const { name, lat, lon, timezone } = req.body;
       const userId = req.user?.id;
+
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
-      const newLocation = await prisma.location.create({
-        data: { name, lat, lon, timezone, userId },
+
+      const uniqueKey = { userId, name };
+      const newLocation = await prisma.location.upsert({
+        where: {
+          userId_name: uniqueKey,
+        },
+        update: {
+          lat: lat,
+          lon: lon,
+          timezone: timezone,
+        },
+        create: {
+          name,
+          lat,
+          lon,
+          timezone,
+          userId,
+        },
       });
       res.status(201).json({ success: true, data: newLocation });
     } catch (error) {
-      console.error("Error creating location:", error);
-      res.status(500).json({ error: "Failed to create location" });
+      console.error("Error creating/updating location:", error);
+      res.status(500).json({ error: "Failed to process location request" });
     }
   }
 
