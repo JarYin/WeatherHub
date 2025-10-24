@@ -22,9 +22,17 @@ import SearchLocation from "./SearchLocation";
 import { useEffect, useState } from "react";
 import { fetchLocations } from "@/modules/locations/api/locationApi";
 import { Location } from "@/modules/locations/type";
-  
+import { weatherAPI } from "../api/weather";
+import { toast } from "sonner";
+import { CloudRain, Droplet, Thermometer, Wind } from "lucide-react";
+import { Weather } from "@/lib/type";
+import timezone from "@/lib/timezone";
+
 export default function WeatherCharts() {
   const [location, setLocation] = useState<Location[]>([]);
+  const [weather, setWeather] = useState<Weather | null>(null);
+  const [hourlyData, setHourlyData] = useState<Weather[]>([]);
+  const [dailyData, setDailyData] = useState<Weather[]>([]);
 
   useEffect(() => {
     async function fetchDataLocations() {
@@ -46,37 +54,139 @@ export default function WeatherCharts() {
     fetchDataLocations();
   }, []);
 
-  function showLocationWeather(location: Location) {
+  useEffect(() => {
+    async function fetchWeatherHourly() {
+      if (location.length === 0) return;
+      const now = new Date();
+      const end = new Date(now); // now
+      const start = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
+
+      const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        d.setHours(0, 0, 0, 0);
+        return d;
+      });
+
+      const dailyStart = last7Days[0];
+      const dailyEnd = new Date(end);
+      dailyEnd.setHours(23, 59, 59, 999);
+      try {
+        const loc = location.find((l) => l.isDefault) ?? location[0];
+        if (!loc?.id) {
+          console.warn("Location has no id, aborting daily fetch.");
+          return;
+        }
+        const response = await weatherAPI.getHourly(
+          loc.id,
+          start.toISOString(),
+          end.toISOString()
+        );
+
+        if (!response || response.length === 0) {
+          toast.error(
+            "No hourly weather data returned for the default location."
+          );
+          return;
+        }
+
+        setHourlyData(response);
+
+        const responseDaily = await weatherAPI.getDaily(
+          loc.id,
+          dailyStart.toISOString(),
+          dailyEnd.toISOString()
+        );
+
+        console.log("Daily weather data:", responseDaily);
+
+        if (!responseDaily || responseDaily.length === 0) {
+          toast.error(
+            "No daily weather data returned for the default location."
+          );
+          return;
+        }
+
+        setDailyData(responseDaily);
+      } catch (error) {
+        console.error("Error fetching hourly weather data:", error);
+        toast.error("Failed to fetch hourly weather data.");
+      }
+    }
+    fetchWeatherHourly();
+  }, [location]);
+
+  async function showLocationWeather(location: Location) {
     console.log("Selected location in WeatherCharts:", location);
+    const now = new Date();
+    const end = new Date(now); // now
+    const start = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
+    try {
+      if (!location?.id) {
+        console.warn("Selected location has no id, aborting fetch.");
+        return;
+      }
+      const response = await weatherAPI.getLatest(location.id);
+
+      if (!response) {
+        toast.error("No weather data returned for the selected location.");
+      }
+
+      const weather = await weatherAPI.getHourly(
+        location.id,
+        start.toISOString(),
+        end.toISOString()
+      );
+
+      setWeather(response as Weather);
+      setHourlyData(weather);
+    } catch (error) {
+      console.error("Error fetching weather data for location:", error);
+    }
   }
 
-  // Mock hourly data for the last 24 hours
-  const hourlyData = Array.from({ length: 24 }, (_, i) => ({
-    time: `${i}:00`,
-    temp: 20 + Math.random() * 10,
-    humidity: 50 + Math.random() * 30,
-    wind: Math.random() * 5,
-  }));
-
-  // Mock daily data for the last 7 days
-  const dailyData = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - i));
+  const formattedHourlyData = hourlyData.map((h) => {
+    const ts = h.timestamp ? new Date(h.timestamp) : null;
+    const time = ts
+      ? ts.toLocaleTimeString("en-EN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+          timeZone: timezone().split(" ")[0],
+        })
+      : "";
     return {
-      date: date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      }),
-      temp_max: 28 + Math.random() * 5,
-      temp_min: 18 + Math.random() * 5,
-      rain_total: Math.random() * 10,
+      time,
+      temp: Number((h as any).temperature ?? (h as any).temp ?? 0),
+      humidity: Number((h as any).humidity ?? 0),
+      wind: Number((h as any).wind_speed ?? (h as any).wind ?? 0),
     };
   });
+
+  // const dailyData = Array.from({ length: 7 }, (_, i) => {
+  //   const date = new Date();
+  //   date.setDate(date.getDate() - (6 - i));
+  //   return {
+  //     date: date.toLocaleDateString("en-US", {
+  //       month: "short",
+  //       day: "numeric",
+  //     }),
+  //     temp_max: Math.round(28 + Math.random() * 5).toFixed(1),
+  //     temp_min: Math.round(18 + Math.random() * 5).toFixed(1),
+  //     rain_total: (Math.random() * 10).toFixed(2),
+  //   };
+  // });
   return (
     <>
       <div className="mb-4">
-        <SearchLocation locations={location} onLocationSelect={showLocationWeather} />
+        <SearchLocation
+          locations={location}
+          onLocationSelect={showLocationWeather}
+        />
       </div>
+
+      <CardWeather weather={weather} />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Temperature Trend */}
         <Card className="shadow-sm hover:shadow-md transition-shadow">
@@ -89,7 +199,7 @@ export default function WeatherCharts() {
           <CardContent>
             <ResponsiveContainer width="100%" height={320}>
               <LineChart
-                data={hourlyData}
+                data={formattedHourlyData}
                 margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
               >
                 <defs>
@@ -106,25 +216,19 @@ export default function WeatherCharts() {
                     />
                   </linearGradient>
                 </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#e5e7eb"
-                  opacity={0.5}
-                />
+                <CartesianGrid strokeDasharray="3 3" opacity={0.5} />
                 <XAxis
                   dataKey="time"
-                  tick={{ fontSize: 11, fill: "#6b7280" }}
-                  stroke="#9ca3af"
+                  tick={{ fontSize: 11 }}
                   interval="preserveStartEnd"
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: "#6b7280" }}
-                  stroke="#9ca3af"
+                  tick={{ fontSize: 11 }}
                   label={{
                     value: "°C",
                     angle: -90,
                     position: "insideLeft",
-                    style: { fontSize: 11, fill: "#6b7280" },
+                    style: { fontSize: 11 },
                   }}
                 />
                 <Tooltip
@@ -134,11 +238,12 @@ export default function WeatherCharts() {
                     borderRadius: "8px",
                     padding: "8px 12px",
                   }}
+                  labelStyle={{ color: "#000" }}
+                  itemStyle={{ color: "#000" }}
                 />
                 <Line
                   type="monotone"
                   dataKey="temp"
-                  stroke="hsl(var(--chart-1))"
                   strokeWidth={3}
                   dot={{ fill: "hsl(var(--chart-1))", strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6 }}
@@ -160,7 +265,7 @@ export default function WeatherCharts() {
           <CardContent>
             <ResponsiveContainer width="100%" height={320}>
               <LineChart
-                data={hourlyData}
+                data={formattedHourlyData}
                 margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
               >
                 <CartesianGrid
@@ -185,6 +290,7 @@ export default function WeatherCharts() {
                     borderRadius: "8px",
                     padding: "8px 12px",
                   }}
+                  labelStyle={{ color: "#000" }}
                 />
                 <Legend
                   wrapperStyle={{ paddingTop: "20px", fontSize: "13px" }}
@@ -193,7 +299,7 @@ export default function WeatherCharts() {
                 <Line
                   type="monotone"
                   dataKey="humidity"
-                  stroke="hsl(var(--chart-2))"
+                  stroke="#8b07f0"
                   strokeWidth={2.5}
                   dot={{ r: 3 }}
                   activeDot={{ r: 5 }}
@@ -202,7 +308,7 @@ export default function WeatherCharts() {
                 <Line
                   type="monotone"
                   dataKey="wind"
-                  stroke="hsl(var(--chart-3))"
+                  stroke="#008000"
                   strokeWidth={2.5}
                   dot={{ r: 3 }}
                   activeDot={{ r: 5 }}
@@ -251,6 +357,7 @@ export default function WeatherCharts() {
                     padding: "10px 14px",
                   }}
                   cursor={{ fill: "rgba(0, 0, 0, 0.05)" }}
+                  labelStyle={{ color: "#000" }}
                 />
                 <Legend
                   wrapperStyle={{ paddingTop: "20px", fontSize: "13px" }}
@@ -258,21 +365,21 @@ export default function WeatherCharts() {
                 />
                 <Bar
                   dataKey="temp_max"
-                  fill="hsl(var(--chart-1))"
+                  fill="#ef4444"
                   name="Max Temp (°C)"
                   radius={[6, 6, 0, 0]}
                   maxBarSize={60}
                 />
                 <Bar
                   dataKey="temp_min"
-                  fill="hsl(var(--chart-2))"
+                  fill="#8b07f0"
                   name="Min Temp (°C)"
                   radius={[6, 6, 0, 0]}
                   maxBarSize={60}
                 />
                 <Bar
                   dataKey="rain_total"
-                  fill="hsl(var(--chart-4))"
+                  fill="#3b82f6"
                   name="Rainfall (mm)"
                   radius={[6, 6, 0, 0]}
                   maxBarSize={60}
@@ -283,5 +390,113 @@ export default function WeatherCharts() {
         </Card>
       </div>
     </>
+  );
+}
+
+function CardWeather({ weather }: { weather: Weather | null }) {
+  if (weather == null) {
+    return (
+      <div className="mb-4 grid grid-cols-1">
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="pb-4 flex items-center justify-between">
+            <CardTitle className="text-xl font-semibold">......</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <h1 className="text-gray-500">No data</h1>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4 grid grid-cols-4 gap-4">
+      <Card className="shadow-sm hover:shadow-md transition-shadow">
+        <CardHeader className="pb-4 flex items-center justify-between">
+          <CardTitle className="text-xl font-semibold">Temperature</CardTitle>
+          <Thermometer className="w-4 h-4 text-orange-500" />
+        </CardHeader>
+        <CardContent>
+          <h1 className="text-2xl font-bold">{weather.temperature}°C</h1>
+          <p className="text-muted-foreground text-xs">
+            Updated:{" "}
+            {new Date(weather.timestamp).toLocaleString("en-EN", {
+              timeZone: timezone().split(" ")[0],
+              year: "numeric",
+              month: "numeric",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-sm hover:shadow-md transition-shadow">
+        <CardHeader className="pb-4 flex items-center justify-between">
+          <CardTitle className="text-xl font-semibold">Humidity</CardTitle>
+          <Droplet className="w-4 h-4 text-purple-500" />
+        </CardHeader>
+        <CardContent>
+          <h1 className="text-2xl font-bold">{weather.humidity}%</h1>
+          <p className="text-muted-foreground text-xs">
+            Updated:{" "}
+            {new Date(weather.timestamp).toLocaleString("en-EN", {
+              timeZone: "Asia/Bangkok",
+              year: "numeric",
+              month: "numeric",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-sm hover:shadow-md transition-shadow">
+        <CardHeader className="pb-4 flex items-center justify-between">
+          <CardTitle className="text-xl font-semibold">Rainfall</CardTitle>
+          <CloudRain className="w-4 h-4 text-blue-500" />
+        </CardHeader>
+        <CardContent>
+          <h1 className="text-2xl font-bold">{weather.rain_mm} mm</h1>
+          <p className="text-muted-foreground text-xs">
+            Updated:{" "}
+            {new Date(weather.timestamp).toLocaleString("en-EN", {
+              timeZone: "Asia/Bangkok",
+              year: "numeric",
+              month: "numeric",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-sm hover:shadow-md transition-shadow">
+        <CardHeader className="pb-4 flex items-center justify-between">
+          <CardTitle className="text-xl font-semibold">Wind Speed</CardTitle>
+          <Wind className="w-4 h-4 text-green-500" />
+        </CardHeader>
+        <CardContent>
+          <h1 className="text-2xl font-bold">{weather.wind_speed} m/s</h1>
+          <p className="text-muted-foreground text-xs">
+            {new Date(weather.timestamp).toLocaleString("en-EN", {
+              timeZone: "Asia/Bangkok",
+              year: "numeric",
+              month: "numeric",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

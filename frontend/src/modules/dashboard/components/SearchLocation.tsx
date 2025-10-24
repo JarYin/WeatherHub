@@ -29,6 +29,11 @@ export default function SearchLocation({
     onLocationSelect?.(defaultLocation);
   }, [locations]);
 
+  function handleLocationSelect(location: Location) {
+    setSelectedLocation(location);
+    onLocationSelect?.(location);
+  }
+
   return (
     <Card className="p-4 border-border/50">
       <div className="flex flex-col sm:flex-row gap-4">
@@ -57,7 +62,7 @@ export default function SearchLocation({
                   selectedLocation?.id === location.id ? "default" : "outline"
                 }
                 size="sm"
-                onClick={() => setSelectedLocation(location)}
+                onClick={() => handleLocationSelect(location)}
                 className="gap-2"
               >
                 <MapPin className="h-3 w-3" />

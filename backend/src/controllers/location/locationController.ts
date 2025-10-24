@@ -1,7 +1,9 @@
 import type { Request, Response } from 'express';
 import { PrismaClient } from "@prisma/client";
+import { WeatherController } from 'controllers/weather/weatherController';
 
 const prisma = new PrismaClient();
+const controller = new WeatherController();
 
 export class LocationController {
   static async getAllLocations(req: Request, res: Response) {
@@ -47,6 +49,13 @@ export class LocationController {
           userId,
         },
       });
+
+      if(!newLocation) {
+        return res.status(500).json({ error: "Failed to create or update location" });
+      }
+
+      await controller.insertWeatherByLocation(newLocation);
+      
       res.status(201).json({ success: true, data: newLocation });
     } catch (error) {
       console.error("Error creating/updating location:", error);

@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { fetchWeatherApi } from 'openmeteo';
 import { Parser } from 'json2csv';
+import fetch from 'node-fetch';
+import { Location } from 'models/location';
 
 const prisma = new PrismaClient();
 
@@ -10,12 +12,21 @@ export class WeatherController {
         const { location_id } = req.query;
         if (!location_id) return res.status(400).json({ message: "location_id is required" });
 
+        // limit to the current hour
+        const startOfHour = new Date();
+        startOfHour.setMinutes(0, 0, 0);
+        const startOfNextHour = new Date(startOfHour);
+        startOfNextHour.setHours(startOfHour.getHours() + 1);
+
         const latest = await prisma.weather.findFirst({
-            where: { location_id: String(location_id) },
+            where: {
+                location_id: String(location_id),
+                timestamp: { gte: startOfHour, lt: startOfNextHour }
+            },
             orderBy: { timestamp: 'desc' },
         });
 
-        if (!latest) return res.status(404).json({ message: "No weather data found" });
+        if (!latest) return res.status(404).json({ message: "No weather data found for the current hour" });
         return res.json(latest);
     }
 
@@ -119,7 +130,7 @@ export class WeatherController {
             const wind = varWind.valuesArray();
             const code = varCode.valuesArray();
 
-            if(!times || !temp || !humidity || !precip || !wind || !code) {
+            if (!times || !temp || !humidity || !precip || !wind || !code) {
                 console.warn(`Incomplete hourly data arrays for location ${loc.id}, skipping.`);
                 continue;
             }
@@ -142,4 +153,40 @@ export class WeatherController {
 
         res.json({ message: "Weather data fetched and saved." });
     }
+
+    async insertWeatherByLocation(location: Location | any) {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&hourly=temperature_2m,relative_humidity_2m,precipitation,windspeed_10m,weathercode&timezone=UTC`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        const hourly = data.hourly;
+        if (!hourly || !Array.isArray(hourly.time)) {
+            throw new Error("No hourly data returned from API");
+        }
+
+        const times = hourly.time;
+        const temp = hourly.temperature_2m;
+        const humidity = hourly.relative_humidity_2m;
+        const precip = hourly.precipitation;
+        const wind = hourly.windspeed_10m;
+        const code = hourly.weathercode;
+
+        const records = times.map((t: string, i: number) => ({
+            location_id: location.id,
+            timestamp: new Date(t),
+            temperature: temp[i] ?? 0,
+            humidity: humidity[i] ?? 0,
+            rain_mm: precip[i] ?? 0,
+            wind_speed: wind[i] ?? 0,
+            weather_code: code[i] ?? 0,
+            granularity: "hourly",
+        }));
+
+        if (records.length > 0) {
+            await prisma.weather.createMany({ data: records, skipDuplicates: true });
+        }
+
+        return records;
+    }
+
 }
