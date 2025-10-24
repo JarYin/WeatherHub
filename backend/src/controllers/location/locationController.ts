@@ -76,9 +76,16 @@ export class LocationController {
       if (!location || location.userId !== userId) {
         return res.status(404).json({ error: "Location not found" });
       }
-      await prisma.location.delete({
-        where: { id },
-      });
+
+      await prisma.$transaction([
+        prisma.weather.deleteMany({
+          where: { location_id: id },
+        }),
+        prisma.location.delete({
+          where: { id },
+        }),
+      ]);
+
       res.json({ success: true, message: "Location deleted" });
     } catch (error) {
       console.error("Error deleting location:", error);
@@ -115,7 +122,7 @@ export class LocationController {
   static async updateLocation(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { name, lat, lon, timezone } = req.body;
+      const { name, lat, lon, timezone, isDefault } = req.body;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -132,7 +139,7 @@ export class LocationController {
 
       const updatedLocation = await prisma.location.update({
         where: { id },
-        data: { name, lat, lon, timezone },
+        data: { name, lat, lon, timezone, isDefault },
       });
 
       res.json({ success: true, data: updatedLocation });

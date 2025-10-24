@@ -43,6 +43,7 @@ import {
 } from "../api/locationApi";
 import { toast } from "sonner";
 import { Location } from "../type";
+import { Checkbox } from "@/components/animate-ui/components/radix/checkbox";
 
 export default function LocationsManager() {
   const [locations, setLocations] = useState<Location[]>([]);
@@ -187,7 +188,7 @@ export default function LocationsManager() {
         const existingIndex = locations.findIndex(
           (loc) => loc.id === processedLoc.id
         );
-        
+
         setLocations((prevLocations) => {
           const existingIdx = prevLocations.findIndex(
             (loc) => loc.id === processedLoc.id
@@ -439,15 +440,27 @@ function LocationCard({
                 }
               />
             </div>
-            <div className="space-y-2 col-span-2">
-              <Label htmlFor={`edit-timezone-${location.id}`}>Timezone</Label>
-              <Input
-                id={`edit-timezone-${location.id}`}
-                value={editData.timezone}
-                onChange={(e) =>
-                  setEditData({ ...editData, timezone: e.target.value })
-                }
-              />
+            <div className="space-y-2 col-span-2 flex gap-2">
+              <div>
+                <Label htmlFor={`edit-timezone-${location.id}`}>Timezone</Label>
+                <Input
+                  id={`edit-timezone-${location.id}`}
+                  value={editData.timezone}
+                  onChange={(e) =>
+                    setEditData({ ...editData, timezone: e.target.value })
+                  }
+                />
+              </div>
+              <Label htmlFor={`edit-isDefault-${location.id}`}>
+                <Checkbox
+                  id={`edit-isDefault-${location.id}`}
+                  checked={editData.isDefault ?? false}
+                  onCheckedChange={(checked) =>
+                    setEditData({ ...editData, isDefault: checked === true })
+                  }
+                />
+                Default
+              </Label>
             </div>
           </div>
           <div className="flex gap-2 pt-2">

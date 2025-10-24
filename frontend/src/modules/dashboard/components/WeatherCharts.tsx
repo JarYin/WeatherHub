@@ -116,6 +116,29 @@ export default function WeatherCharts() {
     fetchWeatherHourly();
   }, [location]);
 
+useEffect(() => {
+  if (location.length === 0) return;
+
+  const fetchLatestWeather = async () => {
+    const loc = location.find((l) => l.isDefault) ?? location[0];
+    if (!loc?.id) return;
+    
+    try {
+    const response = await weatherAPI.getLatest(loc.id);
+    if (response) {
+      setWeather(response as Weather);
+      console.log("Latest weather data updated:", response);
+    }
+    } catch (error) {
+    console.error("Error fetching latest weather data:", error);
+    }
+  };
+
+  // Then fetch every 1 minute (60000ms)
+  const intervalId = setInterval(fetchLatestWeather, 60000);
+
+  return () => clearInterval(intervalId);
+  }, [location]);
   async function showLocationWeather(location: Location) {
     console.log("Selected location in WeatherCharts:", location);
     const now = new Date();

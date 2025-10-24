@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { PrismaClient } from '@prisma/client';
-import fetch from 'node-fetch'; // ถ้ายังไม่มี ให้ติดตั้ง: npm i node-fetch@2
+import fetch from 'node-fetch';
 
 const prisma = new PrismaClient();
 
@@ -29,7 +29,7 @@ async function fetchAndSaveWeatherForLocation(locationId: string) {
         const temp: number[] = hourly.temperature_2m;
         const humidity: number[] = hourly.relative_humidity_2m;
         const precip: number[] = hourly.precipitation;
-        const wind: number[] = hourly.windspeed_10m; // <-- ชื่อ field ตรงกับ API
+        const wind: number[] = hourly.windspeed_10m;
         const code: number[] = hourly.weathercode;
 
         const records = times.map((t: string, i: number) => ({
@@ -59,11 +59,7 @@ export function startWeatherScheduler() {
 
     prisma.location.findMany({ where: { isActive: true } }).then((locations) => {
         locations.forEach((loc) => {
-            // random interval 1-3 ชั่วโมง
-            const randomHour = Math.floor(Math.random() * 3) + 1;
-
-            // cron แบบนาที: ทุก randomHour ชั่วโมง
-            const cronExpr = `*/${randomHour * 60} * * * *`;
+            const cronExpr = `0 */3 * * *`;
             console.log(`📅 Schedule for ${loc.name}: ${cronExpr}`);
 
             cron.schedule(cronExpr, async () => {
@@ -73,6 +69,9 @@ export function startWeatherScheduler() {
                 } catch (err) {
                     console.error(`❌ Cron job error for ${loc.name}:`, err);
                 }
+            });
+            fetchAndSaveWeatherForLocation(loc.id).catch((err) => {
+                console.error(`❌ Initial fetch error for ${loc.name}:`, err);
             });
         });
     });
