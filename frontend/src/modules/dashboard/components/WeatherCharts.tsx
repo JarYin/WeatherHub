@@ -19,20 +19,23 @@ import {
   Legend,
 } from "recharts";
 import SearchLocation from "./SearchLocation";
+import DatePicker from "./DatePicker";
 import { useEffect, useState } from "react";
 import { fetchLocations } from "@/modules/locations/api/locationApi";
 import { Location } from "@/modules/locations/type";
 import { weatherAPI } from "../api/weather";
 import { toast } from "sonner";
 import { CloudRain, Droplet, Thermometer, Wind } from "lucide-react";
-import { Weather } from "@/lib/type";
+import { DailySummary, Weather } from "@/lib/type";
 import timezone from "@/lib/timezone";
+import {getSevenDates} from "../lib/seven-date";
 
 export default function WeatherCharts() {
   const [location, setLocation] = useState<Location[]>([]);
   const [weather, setWeather] = useState<Weather | null>(null);
   const [hourlyData, setHourlyData] = useState<Weather[]>([]);
-  const [dailyData, setDailyData] = useState<Weather[]>([]);
+  const [dailyData, setDailyData] = useState<DailySummary[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   useEffect(() => {
     async function fetchDataLocations() {
@@ -57,19 +60,17 @@ export default function WeatherCharts() {
   useEffect(() => {
     async function fetchWeatherHourly() {
       if (location.length === 0) return;
-      const now = new Date();
-      const end = new Date(now); // now
-      const start = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
 
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (6 - i));
-        d.setHours(0, 0, 0, 0);
-        return d;
-      });
+      const selectedDateStart = new Date(selectedDate);
+      selectedDateStart.setHours(0, 0, 0, 0);
+
+      const selectedDateEnd = new Date(selectedDate);
+      selectedDateEnd.setHours(23, 59, 59, 999);
+
+      const last7Days = getSevenDates(selectedDate).days
 
       const dailyStart = last7Days[0];
-      const dailyEnd = new Date(end);
+      const dailyEnd = new Date(selectedDate);
       dailyEnd.setHours(23, 59, 59, 999);
       try {
         const loc = location.find((l) => l.isDefault) ?? location[0];
@@ -79,15 +80,14 @@ export default function WeatherCharts() {
         }
         const response = await weatherAPI.getHourly(
           loc.id,
-          start.toISOString(),
-          end.toISOString()
+          selectedDateStart.toISOString(),
+          selectedDateEnd.toISOString()
         );
 
         if (!response || response.length === 0) {
           toast.error(
             "No hourly weather data returned for the default location."
           );
-          return;
         }
 
         setHourlyData(response);
@@ -104,7 +104,7 @@ export default function WeatherCharts() {
           toast.error(
             "No daily weather data returned for the default location."
           );
-          return;
+          
         }
 
         setDailyData(responseDaily);
@@ -114,36 +114,49 @@ export default function WeatherCharts() {
       }
     }
     fetchWeatherHourly();
+  }, [location, selectedDate]);
+
+  useEffect(() => {
+    if (location.length === 0) return;
+
+    const fetchLatestWeather = async () => {
+      const loc = location.find((l) => l.isDefault) ?? location[0];
+      if (!loc?.id) return;
+
+      try {
+        const response = await weatherAPI.getLatest(loc.id);
+        if (response) {
+          setWeather(response as Weather);
+          console.log("Latest weather data updated:", response);
+        }
+      } catch (error) {
+        console.error("Error fetching latest weather data:", error);
+      }
+    };
+
+    // Then fetch every 1 minute (60000ms)
+    const intervalId = setInterval(fetchLatestWeather, 60000);
+
+    return () => clearInterval(intervalId);
   }, [location]);
 
-useEffect(() => {
-  if (location.length === 0) return;
 
-  const fetchLatestWeather = async () => {
-    const loc = location.find((l) => l.isDefault) ?? location[0];
-    if (!loc?.id) return;
-    
-    try {
-    const response = await weatherAPI.getLatest(loc.id);
-    if (response) {
-      setWeather(response as Weather);
-      console.log("Latest weather data updated:", response);
-    }
-    } catch (error) {
-    console.error("Error fetching latest weather data:", error);
-    }
-  };
-
-  // Then fetch every 1 minute (60000ms)
-  const intervalId = setInterval(fetchLatestWeather, 60000);
-
-  return () => clearInterval(intervalId);
-  }, [location]);
   async function showLocationWeather(location: Location) {
     console.log("Selected location in WeatherCharts:", location);
-    const now = new Date();
-    const end = new Date(now); // now
-    const start = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
+
+    // Use selected date for data fetching
+    const selectedDateStart = new Date(selectedDate);
+    selectedDateStart.setHours(0, 0, 0, 0);
+
+    const selectedDateEnd = new Date(selectedDate);
+    selectedDateEnd.setHours(23, 59, 59, 999);
+
+    const last7Days = getSevenDates(selectedDate).days
+
+    const dailyStart = last7Days[0];
+    const dailyEnd = new Date(selectedDate);
+    dailyEnd.setHours(23, 59, 59, 999);
+
     try {
       if (!location?.id) {
         console.warn("Selected location has no id, aborting fetch.");
@@ -157,12 +170,19 @@ useEffect(() => {
 
       const weather = await weatherAPI.getHourly(
         location.id,
-        start.toISOString(),
-        end.toISOString()
+        selectedDateStart.toISOString(),
+        selectedDateEnd.toISOString()
+      );
+
+      const daily = await weatherAPI.getDaily(
+        location.id,
+        dailyStart.toISOString(),
+        dailyEnd.toISOString()
       );
 
       setWeather(response as Weather);
       setHourlyData(weather);
+      setDailyData(daily);
     } catch (error) {
       console.error("Error fetching weather data for location:", error);
     }
@@ -186,25 +206,36 @@ useEffect(() => {
     };
   });
 
-  // const dailyData = Array.from({ length: 7 }, (_, i) => {
-  //   const date = new Date();
-  //   date.setDate(date.getDate() - (6 - i));
-  //   return {
-  //     date: date.toLocaleDateString("en-US", {
-  //       month: "short",
-  //       day: "numeric",
-  //     }),
-  //     temp_max: Math.round(28 + Math.random() * 5).toFixed(1),
-  //     temp_min: Math.round(18 + Math.random() * 5).toFixed(1),
-  //     rain_total: (Math.random() * 10).toFixed(2),
-  //   };
-  // });
+  const formattedSummaryData = dailyData.map((d) => {
+    const ts = d.date ? new Date(d.date) : null;
+    const date = ts
+      ? ts.toLocaleDateString("en-EN", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          timeZone: timezone().split(" ")[0],
+        })
+      : "";
+    return {
+      date,
+      temp_min: Number((d as any).temp_min ?? 0),
+      temp_max: Number((d as any).temp_max ?? 0),
+      rain_total: Number((d as any).rain_total ?? 0),
+    };
+  });
+
   return (
     <>
-      <div className="mb-4">
-        <SearchLocation
-          locations={location}
-          onLocationSelect={showLocationWeather}
+      <div className="mb-4 flex gap-4 items-center">
+        <div className="flex-1">
+          <SearchLocation
+            locations={location}
+            onLocationSelect={showLocationWeather}
+          />
+        </div>
+        <DatePicker
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
         />
       </div>
 
@@ -355,7 +386,7 @@ useEffect(() => {
           <CardContent>
             <ResponsiveContainer width="100%" height={340}>
               <BarChart
-                data={dailyData}
+                data={formattedSummaryData}
                 margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
               >
                 <CartesianGrid
@@ -440,7 +471,9 @@ function CardWeather({ weather }: { weather: Weather | null }) {
           <Thermometer className="w-4 h-4 text-orange-500" />
         </CardHeader>
         <CardContent>
-          <h1 className="text-2xl font-bold">{weather.temperature}°C</h1>
+          <h1 className="text-2xl font-bold">
+            {weather.temperature?.toFixed(1)}°C
+          </h1>
           <p className="text-muted-foreground text-xs">
             Updated:{" "}
             {new Date(weather.timestamp).toLocaleString("en-EN", {
@@ -506,7 +539,9 @@ function CardWeather({ weather }: { weather: Weather | null }) {
           <Wind className="w-4 h-4 text-green-500" />
         </CardHeader>
         <CardContent>
-          <h1 className="text-2xl font-bold">{weather.wind_speed} m/s</h1>
+          <h1 className="text-2xl font-bold">
+            {weather.wind_speed?.toFixed(2)} m/s
+          </h1>
           <p className="text-muted-foreground text-xs">
             {new Date(weather.timestamp).toLocaleString("en-EN", {
               timeZone: "Asia/Bangkok",

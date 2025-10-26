@@ -30,4 +30,4 @@ export const weatherAPI = {
         const response = await apiClient.post("/weather/fetch", { location_id });
         return response.data;
     },
-}
+};

@@ -26,10 +26,10 @@ export class WeatherController {
         });
 
         if (!latest) return res.status(404).json({ message: "No weather data found for the current hour" });
-        
+
         res.set('Cache-Control', 'public, max-age=60');
         return res.json(latest);
-    }                                           
+    }
 
     async getHourly(req: Request, res: Response) {
         const { location_id, from, to } = req.query;
@@ -53,13 +53,12 @@ export class WeatherController {
         if (!location_id || !from || !to)
             return res.status(400).json({ message: "location_id, from, to required" });
 
-        const data = await prisma.weather.findMany({
+        const data = await prisma.dailySummary.findMany({
             where: {
-                location_id: String(location_id),
-                timestamp: { gte: new Date(from as string), lte: new Date(to as string) },
-                granularity: 'daily'
+                locationId: String(location_id),
+                date: { gte: new Date(from as string), lte: new Date(to as string) },
             },
-            orderBy: { timestamp: 'asc' }
+            orderBy: { date: 'asc' }
         });
 
         return res.json(data);
@@ -156,11 +155,14 @@ export class WeatherController {
     }
 
     async insertWeatherByLocation(location: Location | any) {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&hourly=temperature_2m,relative_humidity_2m,precipitation,windspeed_10m,weathercode&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode&timezone=UTC`;
+        const now = new Date();
+        const todayStart = new Date(now);
+        todayStart.setHours(0, 0, 0, 0); // 00:00 ของวันนี้
+
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&hourly=temperature_2m,relative_humidity_2m,precipitation,windspeed_10m,weathercode&timezone=UTC`;
         const res = await fetch(url);
         const data = await res.json();
 
-        // --- hourly ---
         const hourly = data.hourly;
         if (!hourly || !Array.isArray(hourly.time)) {
             throw new Error("No hourly data returned from API");
@@ -173,61 +175,35 @@ export class WeatherController {
         const wind = hourly.windspeed_10m;
         const code = hourly.weathercode;
 
-        const records = times.map((t: string, i: number) => ({
-            location_id: location.id,
-            timestamp: new Date(t),
-            temperature: Number(temp?.[i] ?? 0),
-            humidity: Number(humidity?.[i] ?? 0),
-            rain_mm: Number(precip?.[i] ?? 0),
-            wind_speed: Number(wind?.[i] ?? 0),
-            weather_code: Number(code?.[i] ?? 0),
-            granularity: "hourly",
-        }));
+        type WeatherRecord = {
+            location_id: string;
+            timestamp: Date;
+            temperature: number;
+            humidity: number;
+            rain_mm: number;
+            wind_speed: number;
+            weather_code: number;
+            granularity: "hourly" | "daily";
+        };
+
+        const records: WeatherRecord[] = times
+            .map((t: string, i: number): WeatherRecord => ({
+                location_id: String(location.id),
+                timestamp: new Date(t),
+                temperature: Number(temp?.[i] ?? 0),
+                humidity: Number(humidity?.[i] ?? 0),
+                rain_mm: Number(precip?.[i] ?? 0),
+                wind_speed: Number(wind?.[i] ?? 0),
+                weather_code: Number(code?.[i] ?? 0),
+                granularity: "hourly",
+            }))
+            .filter((record: WeatherRecord) => record.timestamp >= todayStart && record.timestamp <= now); // กรองเฉพาะ 00:00 - ปัจจุบัน
 
         if (records.length > 0) {
             await prisma.weather.createMany({ data: records, skipDuplicates: true });
         }
 
-        // --- daily summary ---
-        const daily = data.daily;
-        let dailyRecords: any[] = [];
-        if (daily && Array.isArray(daily.time)) {
-            const dTimes = daily.time;
-            const dMax = daily.temperature_2m_max;
-            const dMin = daily.temperature_2m_min;
-            const dPrecip = daily.precipitation_sum;
-            const dCode = daily.weathercode;
-            const dWindMax = daily.windspeed_10m_max;
-
-            // Ensure arrays exist
-            if (Array.isArray(dMax) && Array.isArray(dMin)) {
-                dailyRecords = dTimes.map((dt: string, i: number) => {
-                    const maxT = Number(dMax?.[i] ?? 0);
-                    const minT = Number(dMin?.[i] ?? 0);
-                    const avgT = (maxT + minT) / (isFinite(maxT + minT) ? 2 : 1);
-
-                    return {
-                        location_id: location.id,
-                        timestamp: new Date(dt),
-                        // store daily average temperature in "temperature" field
-                        temperature: avgT,
-                        // humidity not provided by daily summary -> set to 0 or null as appropriate
-                        humidity: 0,
-                        rain_mm: Number(dPrecip?.[i] ?? 0),
-                        // use daily maximum wind speed (dWindMax) from API if available
-                        wind_speed: Number(dWindMax?.[i] ?? 0),
-                        weather_code: Number(dCode?.[i] ?? 0),
-                        granularity: "daily",
-                    };
-                });
-
-                if (dailyRecords.length > 0) {
-                    await prisma.weather.createMany({ data: dailyRecords, skipDuplicates: true });
-                }
-            }
-        }
-
-        return { hourly: records, daily: dailyRecords };
+        return { hourly: records };
     }
 
 }
