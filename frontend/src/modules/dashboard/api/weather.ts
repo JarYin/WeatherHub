@@ -1,4 +1,5 @@
 import apiClient from "@/lib/axios";
+import { Location } from "@/modules/locations/type";
 
 export const weatherAPI = {
     getLatest: async (location_id: string) => {
@@ -28,6 +29,10 @@ export const weatherAPI = {
     },
     fetchAndSaveWeather: async (location_id: string) => {
         const response = await apiClient.post("/weather/fetch", { location_id });
+        return response.data;
+    },
+    ingestWeatherData: async (location: Location) => {
+        const response = await apiClient.post("/weather/ingest/run", { location });
         return response.data;
     },
 };

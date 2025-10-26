@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { PrismaClient } from "@prisma/client";
 import { WeatherController } from 'controllers/weather/weatherController';
+import { startSummaryWeatherScheduler } from 'scheduler/weather.scheduler';
 
 const prisma = new PrismaClient();
 const controller = new WeatherController();
@@ -55,6 +56,7 @@ export class LocationController {
       }
 
       await controller.insertWeatherByLocation(newLocation);
+      await startSummaryWeatherScheduler();
       
       res.status(201).json({ success: true, data: newLocation });
     } catch (error) {

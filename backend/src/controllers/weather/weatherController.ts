@@ -26,8 +26,7 @@ export class WeatherController {
         });
 
         if (!latest) return res.status(404).json({ message: "No weather data found for the current hour" });
-
-        res.set('Cache-Control', 'public, max-age=60');
+        // res.set('Cache-Control', 'public, max-age=60');
         return res.json(latest);
     }
 
@@ -206,4 +205,61 @@ export class WeatherController {
         return { hourly: records };
     }
 
+    async fetchWeatherNowByLocation(req: Request, res: Response) {
+        try {
+            const { location } = req.body;
+            if (!location) {
+                return res.status(400).json({ error: "Location is required" });
+            }
+
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code&timezone=auto`;
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error(`Weather API failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const current = data.current;
+
+            if (!current) {
+                throw new Error("No current data returned from API");
+            }
+
+            const record = {
+                location_id: String(location.id),
+                timestamp: new Date(current.time),
+                temperature: Number(current.temperature_2m ?? 0),
+                humidity: Number(current.relative_humidity_2m ?? 0),
+                rain_mm: Number(current.precipitation ?? 0),
+                wind_speed: Number(current.wind_speed_10m ?? 0),
+                weather_code: Number(current.weather_code ?? 0),
+                granularity: "hourly",
+            };
+
+            const result = await prisma.weather.upsert({
+                where: {
+                    location_id_timestamp_granularity: {
+                        location_id: record.location_id,
+                        timestamp: record.timestamp,
+                        granularity: record.granularity,
+                    },
+                },
+                update: record,
+                create: record,
+            });
+
+            if(!result) {
+                throw new Error("Failed to upsert weather record");
+            }
+
+            return res.status(200).json({
+                message: "Weather data updated",
+                current: record,
+            });
+        } catch (err: any) {
+            console.error("fetchWeatherNowByLocation error:", err);
+            return res.status(500).json({ error: err.message });
+        }
+    }
 }

@@ -28,7 +28,8 @@ import { toast } from "sonner";
 import { CloudRain, Droplet, Thermometer, Wind } from "lucide-react";
 import { DailySummary, Weather } from "@/lib/type";
 import timezone from "@/lib/timezone";
-import {getSevenDates} from "../lib/seven-date";
+import { getSevenDates } from "../lib/seven-date";
+import { Button } from "@/components/animate-ui/components/buttons/button";
 
 export default function WeatherCharts() {
   const [location, setLocation] = useState<Location[]>([]);
@@ -36,6 +37,7 @@ export default function WeatherCharts() {
   const [hourlyData, setHourlyData] = useState<Weather[]>([]);
   const [dailyData, setDailyData] = useState<DailySummary[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [ingestState, setIngestState] = useState(false);
 
   useEffect(() => {
     async function fetchDataLocations() {
@@ -67,7 +69,7 @@ export default function WeatherCharts() {
       const selectedDateEnd = new Date(selectedDate);
       selectedDateEnd.setHours(23, 59, 59, 999);
 
-      const last7Days = getSevenDates(selectedDate).days
+      const last7Days = getSevenDates(selectedDate).days;
 
       const dailyStart = last7Days[0];
       const dailyEnd = new Date(selectedDate);
@@ -104,7 +106,6 @@ export default function WeatherCharts() {
           toast.error(
             "No daily weather data returned for the default location."
           );
-          
         }
 
         setDailyData(responseDaily);
@@ -134,12 +135,38 @@ export default function WeatherCharts() {
       }
     };
 
-    // Then fetch every 1 minute (60000ms)
     const intervalId = setInterval(fetchLatestWeather, 60000);
 
     return () => clearInterval(intervalId);
   }, [location]);
 
+  useEffect(() => {
+    async function fetchIngestWeatherData() {
+      console.log("Ingest state changed:", ingestState);
+      if (location.length === 0) return;
+
+      try {
+        const loc = location.find((l) => l.isDefault) ?? location[0];
+        if (!loc) {
+          toast.error("No default location found for ingesting weather data.");
+          return;
+        }
+
+        if (!loc?.id) return;
+
+        await weatherAPI.ingestWeatherData(loc);
+        const response = await weatherAPI.getLatest(loc.id);
+        if (response) {
+          setWeather(response as Weather);
+          toast.success("Weather data ingested successfully.");
+          console.log("Ingested weather data for location:", loc);
+        }
+      } catch (error) {
+        console.error("Error ingesting weather data for default location:", error);
+      }
+    }
+    fetchIngestWeatherData();
+  }, [ingestState]);
 
   async function showLocationWeather(location: Location) {
     console.log("Selected location in WeatherCharts:", location);
@@ -151,7 +178,7 @@ export default function WeatherCharts() {
     const selectedDateEnd = new Date(selectedDate);
     selectedDateEnd.setHours(23, 59, 59, 999);
 
-    const last7Days = getSevenDates(selectedDate).days
+    const last7Days = getSevenDates(selectedDate).days;
 
     const dailyStart = last7Days[0];
     const dailyEnd = new Date(selectedDate);
@@ -233,6 +260,12 @@ export default function WeatherCharts() {
             onLocationSelect={showLocationWeather}
           />
         </div>
+        <Button
+          variant={"outline"}
+          onClick={() => setIngestState(prev => !prev)}
+        >
+          Fetch
+        </Button>
         <DatePicker
           selectedDate={selectedDate}
           onDateChange={setSelectedDate}
@@ -452,11 +485,10 @@ function CardWeather({ weather }: { weather: Weather | null }) {
     return (
       <div className="mb-4 grid grid-cols-1">
         <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-4 flex items-center justify-between">
-            <CardTitle className="text-xl font-semibold">......</CardTitle>
-          </CardHeader>
           <CardContent>
-            <h1 className="text-gray-500">No data</h1>
+            <div className="h-fit flex justify-center items-center">
+              <h1 className="text-gray-500">No data</h1>
+            </div>
           </CardContent>
         </Card>
       </div>
