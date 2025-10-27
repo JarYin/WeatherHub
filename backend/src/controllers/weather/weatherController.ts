@@ -17,13 +17,59 @@ export class WeatherController {
         const startOfNextHour = new Date(startOfHour);
         startOfNextHour.setHours(startOfHour.getHours() + 1);
 
-        const latest = await prisma.weather.findFirst({
+        let latest = await prisma.weather.findFirst({
             where: {
-                location_id: String(location_id),
-                timestamp: { gte: startOfHour, lt: startOfNextHour }
+            location_id: String(location_id),
+            timestamp: { gte: startOfHour, lt: startOfNextHour }
             },
             orderBy: { timestamp: 'desc' },
         });
+
+        // ถ้าหาไม่เจอ ให้ fetch ข้อมูลใหม่
+        if (!latest) {
+            const location = await prisma.location.findUnique({
+            where: { id: String(location_id) }
+            });
+
+            if (location) {
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code&timezone=auto`;
+                const response = await fetch(url);
+                
+                if (response.ok) {
+                const data = await response.json();
+                const current = data.current;
+
+                if (current) {
+                    const record = {
+                    location_id: String(location.id),
+                    timestamp: new Date(current.time),
+                    temperature: Number(current.temperature_2m ?? 0),
+                    humidity: Number(current.relative_humidity_2m ?? 0),
+                    rain_mm: Number(current.precipitation ?? 0),
+                    wind_speed: Number(current.wind_speed_10m ?? 0),
+                    weather_code: Number(current.weather_code ?? 0),
+                    granularity: "hourly" as const,
+                    };
+
+                    latest = await prisma.weather.upsert({
+                    where: {
+                        location_id_timestamp_granularity: {
+                        location_id: record.location_id,
+                        timestamp: record.timestamp,
+                        granularity: record.granularity,
+                        },
+                    },
+                    update: record,
+                    create: record,
+                    });
+                }
+                }
+            } catch (error) {
+                console.error('Error fetching weather data:', error);
+            }
+            }
+        }
 
         if (!latest) return res.status(404).json({ message: "No weather data found for the current hour" });
         // res.set('Cache-Control', 'public, max-age=60');
