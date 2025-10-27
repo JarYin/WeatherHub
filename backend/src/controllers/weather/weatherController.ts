@@ -54,8 +54,11 @@ export class WeatherController {
 
         const data = await prisma.dailySummary.findMany({
             where: {
-                locationId: String(location_id),
-                date: { gte: new Date(from as string), lte: new Date(to as string) },
+            locationId: String(location_id),
+            date: { gte: new Date(from as string), lte: new Date(to as string) },
+            },
+            include: {
+            location: true
             },
             orderBy: { date: 'asc' }
         });

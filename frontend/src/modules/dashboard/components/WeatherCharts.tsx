@@ -25,11 +25,20 @@ import { fetchLocations } from "@/modules/locations/api/locationApi";
 import { Location } from "@/modules/locations/type";
 import { weatherAPI } from "../api/weather";
 import { toast } from "sonner";
-import { CloudRain, Droplet, Thermometer, Wind } from "lucide-react";
+import { CloudRain, Droplet, Settings2, Thermometer, Wind } from "lucide-react";
 import { DailySummary, Weather } from "@/lib/type";
 import timezone from "@/lib/timezone";
 import { getSevenDates } from "../lib/seven-date";
 import { Button } from "@/components/animate-ui/components/buttons/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { exportToCSV } from "@/lib/exportToCSV";
 
 export default function WeatherCharts() {
   const [location, setLocation] = useState<Location[]>([]);
@@ -37,7 +46,8 @@ export default function WeatherCharts() {
   const [hourlyData, setHourlyData] = useState<Weather[]>([]);
   const [dailyData, setDailyData] = useState<DailySummary[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [ingestState, setIngestState] = useState(false);
+  const [loadingIngest, setLoadingIngest] = useState(false);
+  const [newLocation, setNewLocation] = useState<Location | null>(null);
 
   useEffect(() => {
     async function fetchDataLocations() {
@@ -75,7 +85,7 @@ export default function WeatherCharts() {
       const dailyEnd = new Date(selectedDate);
       dailyEnd.setHours(23, 59, 59, 999);
       try {
-        const loc = location.find((l) => l.isDefault) ?? location[0];
+        const loc = newLocation;
         if (!loc?.id) {
           console.warn("Location has no id, aborting daily fetch.");
           return;
@@ -121,7 +131,7 @@ export default function WeatherCharts() {
     if (location.length === 0) return;
 
     const fetchLatestWeather = async () => {
-      const loc = location.find((l) => l.isDefault) ?? location[0];
+      const loc = newLocation;
       if (!loc?.id) return;
 
       try {
@@ -140,13 +150,13 @@ export default function WeatherCharts() {
     return () => clearInterval(intervalId);
   }, [location]);
 
-  useEffect(() => {
-    async function fetchIngestWeatherData() {
-      console.log("Ingest state changed:", ingestState);
-      if (location.length === 0) return;
+  async function fetchIngestWeatherData(location: Location) {
+      if (!location) return;
 
       try {
-        const loc = location.find((l) => l.isDefault) ?? location[0];
+        setLoadingIngest(true);
+        const loc = location;
+        console.log("Ingesting weather data for location:", loc);
         if (!loc) {
           toast.error("No default location found for ingesting weather data.");
           return;
@@ -160,16 +170,19 @@ export default function WeatherCharts() {
           setWeather(response as Weather);
           toast.success("Weather data ingested successfully.");
           console.log("Ingested weather data for location:", loc);
+          setLoadingIngest(false);
         }
       } catch (error) {
-        console.error("Error ingesting weather data for default location:", error);
+        console.error(
+          "Error ingesting weather data for default location:",
+          error
+        );
       }
     }
-    fetchIngestWeatherData();
-  }, [ingestState]);
 
   async function showLocationWeather(location: Location) {
     console.log("Selected location in WeatherCharts:", location);
+    setNewLocation(location);
 
     // Use selected date for data fetching
     const selectedDateStart = new Date(selectedDate);
@@ -251,6 +264,26 @@ export default function WeatherCharts() {
     };
   });
 
+  const formattedDataToCSV = dailyData.map((d) => {
+    const ts = d.date ? new Date(d.date) : null;
+    const date = ts
+      ? ts.toLocaleDateString("en-EN", {
+          month: "numeric",
+          day: "numeric",
+          year: "numeric",
+          timeZone: timezone().split(" ")[0],
+        })
+      : "";
+    return {
+      Date: date,
+      "Location": (d.location as Location).name,
+      "Max Temperature (°C)": d.temp_max,
+      "Min Temperature (°C)": d.temp_min,
+      "Rain (mm)": d.rain_total,
+      "Wind Speed (m/s)": d.wind_max,
+    };
+  });
+
   return (
     <>
       <div className="mb-4 flex gap-4 items-center">
@@ -260,12 +293,26 @@ export default function WeatherCharts() {
             onLocationSelect={showLocationWeather}
           />
         </div>
-        <Button
-          variant={"outline"}
-          onClick={() => setIngestState(prev => !prev)}
-        >
-          Fetch
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant={"outline"}><Settings2 className="h-4 w-4" /> Options</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuLabel>
+              <Button
+                variant={"ghost"}
+                onClick={() => fetchIngestWeatherData(newLocation!)}
+                disabled={loadingIngest}
+                className="w-full"
+              >
+                {loadingIngest ? "Loading..." : "Fetch Now"}
+              </Button>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => exportToCSV(formattedDataToCSV, { filename: `WeatherDaily-${formattedDataToCSV.find(v => v.Location)?.Location}-${selectedDate.toISOString().split("T")[0]}` })} className="cursor-pointer">Export csv</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <DatePicker
           selectedDate={selectedDate}
           onDateChange={setSelectedDate}

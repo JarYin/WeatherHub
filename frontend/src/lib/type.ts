@@ -1,3 +1,5 @@
+import { Location } from "@/modules/locations/type";
+
 export interface Weather {
     id: number;
     location_id: string;
@@ -12,7 +14,7 @@ export interface Weather {
 
 export interface DailySummary {
     id: number;
-    locationId: string;
+    location: Location;
     date: string;
     temp_max: number | null;
     temp_min: number | null;
