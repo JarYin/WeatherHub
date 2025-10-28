@@ -386,7 +386,6 @@ export default function LocationsManager() {
             />
           ))}
         </div>
-
         {pagination.totalPages > 1 && (
           <div className="flex justify-center gap-2">
             <Button

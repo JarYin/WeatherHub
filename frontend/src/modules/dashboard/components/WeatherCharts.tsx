@@ -85,9 +85,11 @@ export default function WeatherCharts() {
     totalPages: 1,
     limit: 6,
   });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
         const response = await fetchLocations(
           pagination.page,
@@ -109,6 +111,8 @@ export default function WeatherCharts() {
       } catch (error) {
         console.error("Error fetching locations:", error);
         toast.error("Failed to fetch locations");
+      } finally {
+        setLoading(false);
       }
     };
     fetchData();
@@ -252,7 +256,43 @@ export default function WeatherCharts() {
           <SearchLocation
             locations={locations}
             onLocationSelect={handleLocationSelect}
+            pagination={pagination}
           />
+          {pagination.totalPages > 1 && (
+            <div className="flex justify-center gap-2 mt-5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setPagination((prev) => ({
+                    ...prev,
+                    page: Math.max(prev.page - 1, 1),
+                  }))
+                }
+                disabled={pagination.page === 1 || loading}
+              >
+                Previous
+              </Button>
+
+              <span className="flex items-center px-4 text-sm text-muted-foreground">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setPagination((prev) => ({
+                    ...prev,
+                    page: Math.min(prev.page + 1, prev.totalPages),
+                  }))
+                }
+                disabled={pagination.page === pagination.totalPages || loading}
+              >
+                Next
+              </Button>
+            </div>
+          )}
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:mt-5">
           <DropdownMenu>
