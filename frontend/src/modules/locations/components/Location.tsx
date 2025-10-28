@@ -55,12 +55,23 @@ export default function LocationsManager() {
     lon: "",
     timezone: "Asia/Bangkok",
   });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    totalPages: 1,
+    limit: 6,
+  });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function fetchDataLocations() {
       try {
-        const response = await fetchLocations();
-        const normalized: Location[] = (response as any[]).map((r) => ({
+        setLoading(true);
+        const response = await fetchLocations(
+          pagination.page,
+          pagination.limit
+        );
+
+        const normalized: Location[] = response.data.map((r: any) => ({
           id: r.id,
           name: r.name ?? "",
           lat: Number(r.lat ?? 0),
@@ -68,19 +79,26 @@ export default function LocationsManager() {
           timezone: r.timezone ?? "UTC",
           isDefault: !!r.isDefault,
         }));
+
         setLocations(normalized);
+        setPagination((prev) => ({
+          ...prev,
+          totalPages: response.pagination.totalPages,
+        }));
       } catch (err) {
         console.error("Failed to fetch locations", err);
+      } finally {
+        setLoading(false);
       }
     }
 
     fetchDataLocations();
-  }, []);
+  }, [pagination.page]);
 
   const handleNewLocationChange = async (submit: boolean) => {
     if (submit) {
-      const response = await fetchLocations();
-      const normalized: Location[] = (response as any[]).map((r) => ({
+      const response = await fetchLocations(pagination.page, pagination.limit);
+      const normalized: Location[] = response.data.map((r: any) => ({
         id: r.id,
         name: r.name ?? "",
         lat: Number(r.lat ?? 0),
@@ -99,8 +117,8 @@ export default function LocationsManager() {
   const handleDelete = async (id: string) => {
     try {
       await deleteLocation(id);
-      const response = await fetchLocations();
-      const normalized: Location[] = (response as any[]).map((r) => ({
+      const response = await fetchLocations(pagination.page, pagination.limit);
+      const normalized: Location[] = response.data.map((r: any) => ({
         id: r.id,
         name: r.name ?? "",
         lat: Number(r.lat ?? 0),
@@ -141,8 +159,8 @@ export default function LocationsManager() {
   const handleSave = async (id: string, updatedData: Partial<Location>) => {
     try {
       await updateLocation(id, updatedData);
-      const response = await fetchLocations();
-      const normalized: Location[] = (response as any[]).map((r) => ({
+      const response = await fetchLocations(pagination.page, pagination.limit);
+      const normalized: Location[] = response.data.map((r: any) => ({
         id: r.id,
         name: r.name ?? "",
         lat: Number(r.lat ?? 0),
@@ -353,19 +371,57 @@ export default function LocationsManager() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sortedLocations.map((location) => (
-          <LocationCard
-            key={location.id}
-            location={location}
-            isEditing={editingId === location.id}
-            onDelete={handleDelete}
-            onSetDefault={handleSetDefault}
-            onEdit={handleEdit}
-            onSave={handleSave}
-            onCancel={() => setEditingId(null)}
-          />
-        ))}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sortedLocations.map((location) => (
+            <LocationCard
+              key={location.id}
+              location={location}
+              isEditing={editingId === location.id}
+              onDelete={handleDelete}
+              onSetDefault={handleSetDefault}
+              onEdit={handleEdit}
+              onSave={handleSave}
+              onCancel={() => setEditingId(null)}
+            />
+          ))}
+        </div>
+
+        {pagination.totalPages > 1 && (
+          <div className="flex justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setPagination((prev) => ({
+                  ...prev,
+                  page: Math.max(prev.page - 1, 1),
+                }))
+              }
+              disabled={pagination.page === 1 || loading}
+            >
+              Previous
+            </Button>
+
+            <span className="flex items-center px-4 text-sm text-muted-foreground">
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setPagination((prev) => ({
+                  ...prev,
+                  page: Math.min(prev.page + 1, prev.totalPages),
+                }))
+              }
+              disabled={pagination.page === pagination.totalPages || loading}
+            >
+              Next
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

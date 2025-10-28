@@ -80,12 +80,20 @@ export default function WeatherCharts() {
     null
   );
   const [loadingIngest, setLoadingIngest] = useState(false);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    totalPages: 1,
+    limit: 6,
+  });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetchLocations();
-        const normalized: Location[] = (response as any[]).map((r) => ({
+        const response = await fetchLocations(
+          pagination.page,
+          pagination.limit
+        );
+        const normalized: Location[] = response.data.map((r: any) => ({
           id: r.id,
           name: r.name ?? "",
           lat: Number(r.lat ?? 0),
@@ -94,6 +102,10 @@ export default function WeatherCharts() {
           isDefault: !!r.isDefault,
         }));
         setLocations(normalized);
+        setPagination((prev) => ({
+          ...prev,
+          totalPages: response.pagination.totalPages,
+        }));
       } catch (error) {
         console.error("Error fetching locations:", error);
         toast.error("Failed to fetch locations");
@@ -165,7 +177,11 @@ export default function WeatherCharts() {
 
     setLoadingIngest(true);
     try {
-      await weatherAPI.ingestWeatherData(selectedLocation);
+      const ingest = await weatherAPI.ingestWeatherData(selectedLocation);
+      if (ingest.status === 409) {
+        toast.error("Too many requests, please try again later.");
+        return;
+      }
       const locationId = selectedLocation.id;
       if (locationId) {
         const response = await weatherAPI.getLatest(locationId);
@@ -231,43 +247,45 @@ export default function WeatherCharts() {
 
   return (
     <>
-      <div className="mb-4 flex gap-4 items-center">
+      <div className="mb-4 flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
           <SearchLocation
             locations={locations}
             onLocationSelect={handleLocationSelect}
           />
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline">
-              <Settings2 className="h-4 w-4" /> Options
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuLabel>
-              <Button
-                variant="ghost"
-                onClick={handleIngestData}
-                disabled={loadingIngest || !selectedLocation}
-                className="w-full"
-              >
-                {loadingIngest ? "Loading..." : "Fetch Now"}
+        <div className="flex flex-col sm:flex-row gap-2 sm:mt-5">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-auto">
+                <Settings2 className="h-4 w-4" /> Options
               </Button>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={handleExportCSV}
-              className="cursor-pointer"
-            >
-              Export CSV
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <DatePicker
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-        />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuLabel>
+                <Button
+                  variant="ghost"
+                  onClick={handleIngestData}
+                  disabled={loadingIngest || !selectedLocation}
+                  className="w-full"
+                >
+                  {loadingIngest ? "Loading..." : "Fetch Now"}
+                </Button>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleExportCSV}
+                className="cursor-pointer"
+              >
+                Export CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DatePicker
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+          />
+        </div>
       </div>
 
       <WeatherCards weather={currentWeather} />
@@ -505,7 +523,7 @@ function WeatherCards({ weather }: { weather: Weather | null }) {
     },
     {
       title: "Rainfall",
-      value: `${weather.rain_mm} mm`,
+      value: `${weather.rain_mm?.toFixed(2)} mm`,
       icon: CloudRain,
       color: "text-blue-500",
     },

@@ -6,9 +6,9 @@ export const createLocation = async (data: Location) => {
     return response.data;
 }
 
-export const fetchLocations = async (): Promise<Location[]> => {
-    const response = await apiClient.get("/locations");
-    return response.data.data;
+export const fetchLocations = async (page: number, limit: number): Promise<{ data: Location[]; pagination: any }> => {
+    const response = await apiClient.get(`/locations?page=${page}&limit=${limit}`);
+    return response.data;
 }
 
 export const deleteLocation = async (id: string) => {

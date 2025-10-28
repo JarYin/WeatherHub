@@ -4,13 +4,24 @@ import { fetchWeatherApi } from 'openmeteo';
 import { Parser } from 'json2csv';
 import fetch from 'node-fetch';
 import { Location } from 'models/location';
+import { getUserIP } from 'lib/ip';
+import { RateLimiterMemory } from 'rate-limiter-flexible';
 
 const prisma = new PrismaClient();
+
+const rateLimiter = new RateLimiterMemory({
+    points: 25,
+    duration: 60,
+});
 
 export class WeatherController {
     async getLatest(req: Request, res: Response) {
         const { location_id } = req.query;
         if (!location_id) return res.status(400).json({ message: "location_id is required" });
+
+        const userIP = getUserIP(req);
+        console.log("User IP for rate limiting:", userIP);
+        await rateLimiter.consume(userIP, 1);
 
         const startOfHour = new Date();
         startOfHour.setMinutes(0, 0, 0);
@@ -19,8 +30,8 @@ export class WeatherController {
 
         let latest = await prisma.weather.findFirst({
             where: {
-            location_id: String(location_id),
-            timestamp: { gte: startOfHour, lt: startOfNextHour }
+                location_id: String(location_id),
+                timestamp: { gte: startOfHour, lt: startOfNextHour }
             },
             orderBy: { timestamp: 'desc' },
         });
@@ -28,46 +39,46 @@ export class WeatherController {
         // ถ้าหาไม่เจอ ให้ fetch ข้อมูลใหม่
         if (!latest) {
             const location = await prisma.location.findUnique({
-            where: { id: String(location_id) }
+                where: { id: String(location_id) }
             });
 
             if (location) {
-            try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code&timezone=auto`;
-                const response = await fetch(url);
-                
-                if (response.ok) {
-                const data = await response.json();
-                const current = data.current;
+                try {
+                    const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code&timezone=auto`;
+                    const response = await fetch(url);
 
-                if (current) {
-                    const record = {
-                    location_id: String(location.id),
-                    timestamp: new Date(current.time),
-                    temperature: Number(current.temperature_2m ?? 0),
-                    humidity: Number(current.relative_humidity_2m ?? 0),
-                    rain_mm: Number(current.precipitation ?? 0),
-                    wind_speed: Number(current.wind_speed_10m ?? 0),
-                    weather_code: Number(current.weather_code ?? 0),
-                    granularity: "hourly" as const,
-                    };
+                    if (response.ok) {
+                        const data = await response.json();
+                        const current = data.current;
 
-                    latest = await prisma.weather.upsert({
-                    where: {
-                        location_id_timestamp_granularity: {
-                        location_id: record.location_id,
-                        timestamp: record.timestamp,
-                        granularity: record.granularity,
-                        },
-                    },
-                    update: record,
-                    create: record,
-                    });
+                        if (current) {
+                            const record = {
+                                location_id: String(location.id),
+                                timestamp: new Date(current.time),
+                                temperature: Number(current.temperature_2m ?? 0),
+                                humidity: Number(current.relative_humidity_2m ?? 0),
+                                rain_mm: Number(current.precipitation ?? 0),
+                                wind_speed: Number(current.wind_speed_10m ?? 0),
+                                weather_code: Number(current.weather_code ?? 0),
+                                granularity: "hourly" as const,
+                            };
+
+                            latest = await prisma.weather.upsert({
+                                where: {
+                                    location_id_timestamp_granularity: {
+                                        location_id: record.location_id,
+                                        timestamp: record.timestamp,
+                                        granularity: record.granularity,
+                                    },
+                                },
+                                update: record,
+                                create: record,
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching weather data:', error);
                 }
-                }
-            } catch (error) {
-                console.error('Error fetching weather data:', error);
-            }
             }
         }
 
@@ -100,11 +111,11 @@ export class WeatherController {
 
         const data = await prisma.dailySummary.findMany({
             where: {
-            locationId: String(location_id),
-            date: { gte: new Date(from as string), lte: new Date(to as string) },
+                locationId: String(location_id),
+                date: { gte: new Date(from as string), lte: new Date(to as string) },
             },
             include: {
-            location: true
+                location: true
             },
             orderBy: { date: 'asc' }
         });
@@ -298,7 +309,7 @@ export class WeatherController {
                 create: record,
             });
 
-            if(!result) {
+            if (!result) {
                 throw new Error("Failed to upsert weather record");
             }
 

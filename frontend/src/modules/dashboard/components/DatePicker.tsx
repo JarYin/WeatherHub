@@ -58,7 +58,7 @@ export default function DatePicker({
         variant="outline"
         size="sm"
         onClick={() => setIsOpen(!isOpen)}
-        className="gap-2 h-10 px-4 font-medium"
+        className="gap-2 h-10 px-4 font-medium w-full"
       >
         <Calendar className="h-4 w-4" />
         {isToday

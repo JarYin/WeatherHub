@@ -41,6 +41,7 @@
     "morgan": "^1.10.0",
     "node-cron": "^4.2.1",
     "node-fetch": "2",
-    "openmeteo": "^1.2.1"
+    "openmeteo": "^1.2.1",
+    "rate-limiter-flexible": "^8.1.0"
   }
 }

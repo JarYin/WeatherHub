@@ -13,10 +13,33 @@ export class LocationController {
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
-      const locations = await prisma.location.findMany({
-        where: { userId },
+
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 6;
+      const skip = (page - 1) * limit;
+
+      const [locations, total] = await Promise.all([
+        prisma.location.findMany({
+          where: { userId },
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.location.count({
+          where: { userId },
+        }),
+      ]);
+
+      res.json({
+        success: true,
+        data: locations,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
       });
-      res.json({ success: true, data: locations });
     } catch (error) {
       console.error("Error fetching locations:", error);
       res.status(500).json({ error: "Failed to fetch locations" });
