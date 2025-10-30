@@ -6,6 +6,7 @@ import fetch from 'node-fetch';
 import { Location } from 'models/location';
 import { getUserIP } from 'lib/ip';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
+import NodeCache from "node-cache";
 
 const prisma = new PrismaClient();
 
@@ -14,10 +15,20 @@ const rateLimiter = new RateLimiterMemory({
     duration: 60,
 });
 
+const cache = new NodeCache({ stdTTL: 3600 });
+
 export class WeatherController {
     async getLatest(req: Request, res: Response) {
         const { location_id } = req.query;
         if (!location_id) return res.status(400).json({ message: "location_id is required" });
+
+        const cacheKey = `latest_${location_id}`;
+
+        const cached = cache.get(cacheKey);
+        if (cached) {
+            console.log("Served getLatest from cache:", cacheKey);
+            return res.json(cached);
+        }
 
         const userIP = getUserIP(req);
         console.log("User IP for rate limiting:", userIP);
@@ -83,7 +94,8 @@ export class WeatherController {
         }
 
         if (!latest) return res.status(404).json({ message: "No weather data found for the current hour" });
-        // res.set('Cache-Control', 'public, max-age=60');
+        cache.set(cacheKey, latest, 60);
+        console.log("Cached new result:", cacheKey);
         return res.json(latest);
     }
 
@@ -91,6 +103,14 @@ export class WeatherController {
         const { location_id, from, to } = req.query;
         if (!location_id || !from || !to)
             return res.status(400).json({ message: "location_id, from, to required" });
+
+        const cacheKey = `hourly_${location_id}_${from}_${to}`;
+
+        const cached = cache.get(cacheKey);
+        if (cached) {
+            console.log("Served getHourly from cache:", cacheKey);
+            return res.json(cached);
+        }
 
         const data = await prisma.weather.findMany({
             where: {
@@ -101,6 +121,9 @@ export class WeatherController {
             orderBy: { timestamp: 'asc' }
         });
 
+        cache.set(cacheKey, data, 3600);
+        console.log("Cached new result:", cacheKey);
+
         return res.json(data);
     }
 
@@ -108,6 +131,14 @@ export class WeatherController {
         const { location_id, from, to } = req.query;
         if (!location_id || !from || !to)
             return res.status(400).json({ message: "location_id, from, to required" });
+
+        const cacheKey = `daily_${location_id}_${from}_${to}`;
+
+        const cached = cache.get(cacheKey);
+        if (cached) {
+            console.log("Served getDaily from cache:", cacheKey);
+            return res.json(cached);
+        }
 
         const data = await prisma.dailySummary.findMany({
             where: {
@@ -119,6 +150,9 @@ export class WeatherController {
             },
             orderBy: { date: 'asc' }
         });
+
+        cache.set(cacheKey, data, 3600);
+        console.log("Cached new result:", cacheKey);
 
         return res.json(data);
     }

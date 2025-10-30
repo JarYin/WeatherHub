@@ -14,6 +14,7 @@ model User {
   createdAt  DateTime    @default(now())
 
   Location Location[]
+  Compares Compares[]
 }
 
 model Location {
@@ -29,8 +30,10 @@ model Location {
   weather    Weather[]
   summary    DailySummary[]
   ingestJobs IngestJob[]
+  compares   Compares[]
   user       User?          @relation(fields: [userId], references: [id])
   @@unique([userId, name])
+  @@index([createdAt])
 }
 
 model Weather {
@@ -46,6 +49,7 @@ model Weather {
 
   location     Location @relation(fields: [location_id], references: [id])
   @@unique([location_id, timestamp, granularity])
+  @@index([timestamp])
 }
 
 model DailySummary {
@@ -73,4 +77,17 @@ model IngestJob {
   note        String?
 
   location    Location?   @relation(fields: [locationId], references: [id])
+  @@index([startedAt])
+}
+
+model Compares {
+  id          String   @id @default(uuid())
+  UserId      String
+  locationId  String
+  created_at  DateTime @default(now())
+
+  user        User     @relation(fields: [UserId], references: [id])
+  location    Location @relation(fields: [locationId], references: [id])
+
+  @@index([created_at])
 }

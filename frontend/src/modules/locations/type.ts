@@ -13,4 +13,5 @@ export interface Location {
     total: number;
     totalPages: number;
   };
+  location?: Location
 }

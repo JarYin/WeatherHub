@@ -2,6 +2,7 @@ import { Router } from 'express';
 import weatherRoutes from './weatherRoutes';
 import authRoutes from './auth';
 import locationRoutes from './location';
+import compareRoutes from './compare';
 
 const router = Router();
 
@@ -9,6 +10,7 @@ const router = Router();
 router.use('/weather', weatherRoutes);
 router.use('/auth', authRoutes);
 router.use('/locations', locationRoutes);
+router.use('/compare', compareRoutes)
 
 // Default API info
 router.get('/', (req, res) => {
@@ -16,11 +18,11 @@ router.get('/', (req, res) => {
     message: 'WeatherHub API',
     version: '1.0.0',
     endpoints: {
-      weather: '/api/weather',
+      health: '/health',
       auth: '/api/auth',
       location: '/api/location',
-      test: '/api/test',
-      health: '/health',
+      weather: '/api/weather', 
+      compare: '/api/compare',
     },
   });
 });
