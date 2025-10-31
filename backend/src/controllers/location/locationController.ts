@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { PrismaClient } from "@prisma/client";
-import { WeatherController } from 'controllers/weather/weatherController';
+import { WeatherController } from '../weather/weatherController';
 import { startSummaryWeatherScheduler } from 'scheduler/weather.scheduler';
 
 const prisma = new PrismaClient();
