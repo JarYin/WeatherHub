@@ -90,9 +90,23 @@ WeatherHub/
 
 - `GET /health` - Health check
 - `GET /api` - API information
-- `GET /api/weather/current/:city` - Current weather
-- `GET /api/weather/forecast/:city` - Weather forecast
-- `GET /api/weather/search/:query` - Search cities
+- `GET /api/locations` - Fetch All Locations
+- `GET /api/weather/latest` - Fetch Weather Latest
+- `GET /api/weather/hourly` - Fetch Weather Hourly Latest 24 hour
+- `GET /api/weather/daily` - Fetch Weather Daily
+- `GET /api/weather/export/csv` - Export CSV Weather
+- `GET /api/compare` - Fetch Compared Locations
+
+- `POST /api/locations` - Create Location
+- `POST /api/weather/ingest/run` - Fetch Weather Now
+- `POST /api/weather/fetch` - Extract data from open-meteo and save it to the database
+- `POST /api/compare` - Create Compare Locations
+
+- `DELETE /api/locations/:id` - Delete Location
+- `DELETE /api/compare/:locationId` - Delete Compare Location
+
+- `PUT /api/locations/:id/default` - Set Default Location
+- `PUT /api/locations/:id` - Update Location
 
 ## 🌍 Environment Variables
 
@@ -102,11 +116,34 @@ NODE_ENV=development
 PORT=5000
 FRONTEND_URL=http://localhost:3000
 WEATHER_API_KEY=your_openweathermap_api_key
+DATABASE_URL="your_database_url"
+DATABASE_URL_UNPOOLED=""
+PGHOST=""
+PGHOST_UNPOOLED=""
+PGUSER=""
+PGDATABASE=""
+PGPASSWORD=""
+
+POSTGRES_URL=""
+POSTGRES_URL_NON_POOLING=""
+POSTGRES_USER=""
+POSTGRES_HOST=""
+POSTGRES_PASSWORD=""
+POSTGRES_DATABASE=""
+POSTGRES_URL_NO_SSL=""
+POSTGRES_PRISMA_URL=""
+
+NEXT_PUBLIC_STACK_PROJECT_ID=""
+NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY=""
+STACK_SECRET_SERVER_KEY=""
+
+JWT_EXPIRES_IN=7d
+JWT_SECRET=""
 ```
 
 ### Frontend
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
+NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
 ```
 
 ## 🤝 Contributing
