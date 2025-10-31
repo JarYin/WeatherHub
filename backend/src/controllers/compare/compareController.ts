@@ -1,7 +1,5 @@
 import type { Request, Response } from 'express';
 import { PrismaClient } from "@prisma/client";
-import fetch from 'node-fetch';
-import NodeCache from "node-cache";
 
 const prisma = new PrismaClient();
 
