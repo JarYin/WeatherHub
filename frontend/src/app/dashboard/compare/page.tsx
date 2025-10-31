@@ -1,7 +1,11 @@
+import SelectedLocations from "@/modules/compare/components/SelectedLocations";
+
 export default function comparePage() {
     return (
-        <div className="min-h-screen flex justify-center items-center">
-            <h1 className="text-4xl font-bold">Compare</h1>
+        <div className="max-w-7xl mx-auto mt-4">
+            <h1 className="text-4xl font-bold mb-4">Compare Locations</h1>
+            <p className="text-muted-foreground mb-8">Compare weather data across multiple cities side by side</p>
+            <SelectedLocations />
         </div>
     );
 }

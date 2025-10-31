@@ -14,6 +14,7 @@ model User {
   createdAt  DateTime    @default(now())
 
   Location Location[]
+  Compares Compares[]
 }
 
 model Location {
@@ -29,25 +30,25 @@ model Location {
   weather    Weather[]
   summary    DailySummary[]
   ingestJobs IngestJob[]
+  compares   Compares[]
   user       User?          @relation(fields: [userId], references: [id])
+  @@unique([userId, name])
+  @@index([createdAt])
 }
 
 model Weather {
-  id           String      @id @default(uuid())
-  locationId   String
+  id           Int      @id @default(autoincrement())
+  location_id  String
   timestamp    DateTime
-  temp_c       Float
-  humidity     Float
-  wind_ms      Float
-  rain_mm      Float
-  condition    Int
-  createdAt    DateTime     @default(now())
-  ingestSource String?
-  ingestJobId  String?
+  temperature  Float?
+  humidity     Float?
+  rain_mm      Float?
+  wind_speed   Float?
+  weather_code Int?
+  granularity  String
 
-  location     Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
-
-  @@unique([locationId, timestamp])  // กันข้อมูลซ้ำในแต่ละ location+time
+  location     Location @relation(fields: [location_id], references: [id])
+  @@unique([location_id, timestamp, granularity])
   @@index([timestamp])
 }
 
@@ -76,4 +77,17 @@ model IngestJob {
   note        String?
 
   location    Location?   @relation(fields: [locationId], references: [id])
+  @@index([startedAt])
+}
+
+model Compares {
+  id          String   @id @default(uuid())
+  UserId      String
+  locationId  String
+  created_at  DateTime @default(now())
+
+  user        User     @relation(fields: [UserId], references: [id])
+  location    Location @relation(fields: [locationId], references: [id])
+
+  @@index([created_at])
 }

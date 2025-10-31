@@ -1,257 +1,358 @@
 import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { fetchWeatherApi } from 'openmeteo';
+import { Parser } from 'json2csv';
+import fetch from 'node-fetch';
+import { Location } from 'models/location';
+import { getUserIP } from 'lib/ip';
+import { RateLimiterMemory } from 'rate-limiter-flexible';
+import NodeCache from "node-cache";
 
 const prisma = new PrismaClient();
 
+const rateLimiter = new RateLimiterMemory({
+    points: 25,
+    duration: 60,
+});
+
+const cache = new NodeCache({ stdTTL: 3600 });
+
 export class WeatherController {
-    static async getAllWeather(req: Request, res: Response) {
-        const params = {
-            "latitude": 52.52,
-            "longitude": 13.41,
-            "hourly": "temperature_2m",
-        };
-        const url = "https://api.open-meteo.com/v1/forecast";
-        const responses = await fetchWeatherApi(url, params);
+    async getLatest(req: Request, res: Response) {
+        const { location_id } = req.query;
+        if (!location_id) return res.status(400).json({ message: "location_id is required" });
 
-        if(!responses) {
-            console.log("No weather data received from API.");
-            return;
+        const cacheKey = `latest_${location_id}`;
+
+        const cached = cache.get(cacheKey);
+        if (cached) {
+            console.log("Served getLatest from cache:", cacheKey);
+            return res.json(cached);
         }
 
-        // Process first location. Add a for-loop for multiple locations or weather models
-        if (!Array.isArray(responses) || responses.length === 0) {
-            console.log("No weather response models returned from API.");
-            return;
-        }
+        const userIP = getUserIP(req);
+        await rateLimiter.consume(userIP, 1);
 
-        const response = responses[0];
-        if (!response) {
-            console.log("No weather data for the first response.");
-            return;
-        }
+        const startOfHour = new Date();
+        startOfHour.setMinutes(0, 0, 0);
+        const startOfNextHour = new Date(startOfHour);
+        startOfNextHour.setHours(startOfHour.getHours() + 1);
 
-        // Attributes for timezone and location
-        const latitude = response.latitude();
-        const longitude = response.longitude();
-        const elevation = response.elevation();
-        const utcOffsetSeconds = response.utcOffsetSeconds();
-
-        console.log(
-            `\nCoordinates: ${latitude}°N ${longitude}°E`,
-            `\nElevation: ${elevation}m asl`,
-            `\nTimezone difference to GMT+0: ${utcOffsetSeconds}s`,
-        );
-
-        const hourly = response.hourly()!;
-
-        // Note: The order of weather variables in the URL query and the indices below need to match!
-        const weatherData = {
-            hourly: {
-                time: [...Array((Number(hourly.timeEnd()) - Number(hourly.time())) / hourly.interval())].map(
-                    (_, i) => new Date((Number(hourly.time()) + i * hourly.interval() + utcOffsetSeconds) * 1000)
-                ),
-                temperature_2m: hourly.variables(0)!.valuesArray(),
+        let latest = await prisma.weather.findFirst({
+            where: {
+                location_id: String(location_id),
+                timestamp: { gte: startOfHour, lt: startOfNextHour }
             },
+            orderBy: { timestamp: 'desc' },
+        });
+
+        // ถ้าหาไม่เจอ ให้ fetch ข้อมูลใหม่
+        if (!latest) {
+            const location = await prisma.location.findUnique({
+                where: { id: String(location_id) }
+            });
+
+            if (location) {
+                try {
+                    const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code&timezone=auto`;
+                    const response = await fetch(url);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const current = data.current;
+
+                        if (current) {
+                            const record = {
+                                location_id: String(location.id),
+                                timestamp: new Date(current.time),
+                                temperature: Number(current.temperature_2m ?? 0),
+                                humidity: Number(current.relative_humidity_2m ?? 0),
+                                rain_mm: Number(current.precipitation ?? 0),
+                                wind_speed: Number(current.wind_speed_10m ?? 0),
+                                weather_code: Number(current.weather_code ?? 0),
+                                granularity: "hourly" as const,
+                            };
+
+                            latest = await prisma.weather.upsert({
+                                where: {
+                                    location_id_timestamp_granularity: {
+                                        location_id: record.location_id,
+                                        timestamp: record.timestamp,
+                                        granularity: record.granularity,
+                                    },
+                                },
+                                update: record,
+                                create: record,
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching weather data:', error);
+                }
+            }
+        }
+
+        if (!latest) return res.status(404).json({ message: "No weather data found for the current hour" });
+        cache.set(cacheKey, latest, 60);
+        console.log("Cached new result:", cacheKey);
+        return res.json(latest);
+    }
+
+    async getHourly(req: Request, res: Response) {
+        const { location_id, from, to } = req.query;
+        if (!location_id || !from || !to)
+            return res.status(400).json({ message: "location_id, from, to required" });
+
+        const cacheKey = `hourly_${location_id}_${from}_${to}`;
+
+        const cached = cache.get(cacheKey);
+        if (cached) {
+            console.log("Served getHourly from cache:", cacheKey);
+            return res.json(cached);
+        }
+
+        const data = await prisma.weather.findMany({
+            where: {
+                location_id: String(location_id),
+                timestamp: { gte: new Date(from as string), lte: new Date(to as string) },
+                granularity: 'hourly'
+            },
+            orderBy: { timestamp: 'asc' }
+        });
+
+        cache.set(cacheKey, data, 3600);
+        console.log("Cached new result:", cacheKey);
+
+        return res.json(data);
+    }
+
+    async getDaily(req: Request, res: Response) {
+        const { location_id, from, to } = req.query;
+        if (!location_id || !from || !to)
+            return res.status(400).json({ message: "location_id, from, to required" });
+
+        const cacheKey = `daily_${location_id}_${from}_${to}`;
+
+        const cached = cache.get(cacheKey);
+        if (cached) {
+            console.log("Served getDaily from cache:", cacheKey);
+            return res.json(cached);
+        }
+
+        const data = await prisma.dailySummary.findMany({
+            where: {
+                locationId: String(location_id),
+                date: { gte: new Date(from as string), lte: new Date(to as string) },
+            },
+            include: {
+                location: true
+            },
+            orderBy: { date: 'asc' }
+        });
+
+        cache.set(cacheKey, data, 3600);
+        console.log("Cached new result:", cacheKey);
+
+        return res.json(data);
+    }
+
+    async exportCSV(req: Request, res: Response) {
+        const { location_id, from, to, type } = req.query;
+        if (!location_id || !from || !to)
+            return res.status(400).json({ message: "location_id, from, to required" });
+
+        const data = await prisma.weather.findMany({
+            where: {
+                location_id: String(location_id),
+                timestamp: { gte: new Date(from as string), lte: new Date(to as string) },
+                granularity: type === 'daily' ? 'daily' : 'hourly'
+            },
+            orderBy: { timestamp: 'asc' }
+        });
+
+        const parser = new Parser();
+        const csv = parser.parse(data);
+
+        res.header('Content-Type', 'text/csv');
+        res.attachment(`weather_${location_id}_${type || 'hourly'}.csv`);
+        res.send(csv);
+    }
+
+    // ดึงข้อมูลจาก open-meteo และบันทึกลงฐานข้อมูล
+    async fetchAndSaveWeather(req: Request, res: Response) {
+        const locations = await prisma.location.findMany();
+
+        for (const loc of locations) {
+            const weatherResponse = await fetchWeatherApi("https://api.open-meteo.com/v1/forecast", {
+                latitude: loc.lat,
+                longitude: loc.lon,
+                hourly: ["temperature_2m", "relative_humidity_2m", "precipitation", "wind_speed_10m", "weathercode"],
+                daily: ["temperature_2m_max", "temperature_2m_min", "precipitation_sum", "weathercode"],
+                timezone: "auto",
+            });
+
+            const w = weatherResponse[0];
+            if (!w) {
+                console.warn(`No weather data returned for location ${loc.id}, skipping.`);
+                continue;
+            }
+
+            // hourly
+            const hourly = w.hourly();
+            if (!hourly) {
+                console.warn(`No hourly data for location ${loc.id}, skipping.`);
+                continue;
+            }
+
+            // ensure expected variables exist
+            const varTemp = hourly.variables(0);
+            const varHumidity = hourly.variables(1);
+            const varPrecip = hourly.variables(2);
+            const varWind = hourly.variables(3);
+            const varCode = hourly.variables(4);
+            if (!varTemp || !varHumidity || !varPrecip || !varWind || !varCode) {
+                console.warn(`Missing hourly variables for location ${loc.id}, skipping.`);
+                continue;
+            }
+
+            const times = hourly.time() as unknown as any[];
+            const temp = varTemp.valuesArray();
+            const humidity = varHumidity.valuesArray();
+            const precip = varPrecip.valuesArray();
+            const wind = varWind.valuesArray();
+            const code = varCode.valuesArray();
+
+            if (!times || !temp || !humidity || !precip || !wind || !code) {
+                console.warn(`Incomplete hourly data arrays for location ${loc.id}, skipping.`);
+                continue;
+            }
+
+            const records = times.map((t: any, i: number) => ({
+                location_id: loc.id,
+                timestamp: new Date(t),
+                temperature: Number(temp[i] ?? 0),
+                humidity: Number(humidity[i] ?? 0),
+                rain_mm: Number(precip[i] ?? 0),
+                wind_speed: Number(wind[i] ?? 0),
+                weather_code: Number(code[i] ?? 0),
+                granularity: 'hourly'
+            }));
+
+            if (records.length > 0) {
+                await prisma.weather.createMany({ data: records, skipDuplicates: true });
+            }
+        }
+
+        res.json({ message: "Weather data fetched and saved." });
+    }
+
+    async insertWeatherByLocation(location: Location | any) {
+        const now = new Date();
+        const todayStart = new Date(now);
+        todayStart.setHours(0, 0, 0, 0); // 00:00 ของวันนี้
+
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&hourly=temperature_2m,relative_humidity_2m,precipitation,windspeed_10m,weathercode&timezone=UTC`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        const hourly = data.hourly;
+        if (!hourly || !Array.isArray(hourly.time)) {
+            throw new Error("No hourly data returned from API");
+        }
+
+        const times = hourly.time;
+        const temp = hourly.temperature_2m;
+        const humidity = hourly.relative_humidity_2m;
+        const precip = hourly.precipitation;
+        const wind = hourly.windspeed_10m;
+        const code = hourly.weathercode;
+
+        type WeatherRecord = {
+            location_id: string;
+            timestamp: Date;
+            temperature: number;
+            humidity: number;
+            rain_mm: number;
+            wind_speed: number;
+            weather_code: number;
+            granularity: "hourly" | "daily";
         };
 
-        // 'weatherData' now contains a simple structure with arrays with datetime and weather data
-        console.log("\nHourly data", weatherData.hourly)
-    }
+        const records: WeatherRecord[] = times
+            .map((t: string, i: number): WeatherRecord => ({
+                location_id: String(location.id),
+                timestamp: new Date(t),
+                temperature: Number(temp?.[i] ?? 0),
+                humidity: Number(humidity?.[i] ?? 0),
+                rain_mm: Number(precip?.[i] ?? 0),
+                wind_speed: Number(wind?.[i] ?? 0),
+                weather_code: Number(code?.[i] ?? 0),
+                granularity: "hourly",
+            }))
+            .filter((record: WeatherRecord) => record.timestamp >= todayStart && record.timestamp <= now); // กรองเฉพาะ 00:00 - ปัจจุบัน
 
-    // GET /api/weather/:id - Get specific weather record
-    static async getWeatherById(req: Request, res: Response) {
-        try {
-            const { id } = req.params;
-            const { id: userId, email } = req.user!;
-
-            const weather = await prisma.weather.findUnique({
-                where: { id },
-                include: {
-                    location: true
-                }
-            });
-
-            if (!weather) {
-                return res.status(404).json({ error: 'Weather record not found' });
-            }
-
-            res.json({
-                success: true,
-                data: weather,
-                requestedBy: { userId, email }
-            });
-        } catch (error) {
-            console.error('Error fetching weather record:', error);
-            res.status(500).json({ error: 'Failed to fetch weather record' });
+        if (records.length > 0) {
+            await prisma.weather.createMany({ data: records, skipDuplicates: true });
         }
+
+        return { hourly: records };
     }
 
-    // POST /api/weather - Create new weather record
-    static async createWeather(req: Request, res: Response) {
+    async fetchWeatherNowByLocation(req: Request, res: Response) {
         try {
-            const { locationId, timestamp, temp_c, humidity, wind_ms, rain_mm, condition } = req.body;
-            const { id: userId, email } = req.user!;
-
-            // Validate required fields
-            if (!locationId || !timestamp || temp_c === undefined || humidity === undefined) {
-                return res.status(400).json({
-                    error: 'Missing required fields: locationId, timestamp, temp_c, humidity'
-                });
+            const { location } = req.body;
+            if (!location) {
+                return res.status(400).json({ error: "Location is required" });
             }
 
-            const weather = await prisma.weather.create({
-                data: {
-                    locationId,
-                    timestamp: new Date(timestamp),
-                    temp_c,
-                    humidity,
-                    wind_ms: wind_ms || 0,
-                    rain_mm: rain_mm || 0,
-                    condition: condition || 0,
-                    ingestSource: `user_${userId}` // Track who created this record
-                },
-                include: {
-                    location: true
-                }
-            });
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code&timezone=auto`;
+            const response = await fetch(url);
 
-            console.log(`Weather record created by user ${email} (ID: ${userId})`);
-
-            res.status(201).json({
-                success: true,
-                data: weather,
-                createdBy: { userId, email }
-            });
-        } catch (error: any) {
-            console.error('Error creating weather record:', error);
-            if (error.code === 'P2002') {
-                res.status(409).json({ error: 'Weather record already exists for this location and timestamp' });
-            } else {
-                res.status(500).json({ error: 'Failed to create weather record' });
-            }
-        }
-    }
-
-    // PUT /api/weather/:id - Update weather record
-    static async updateWeather(req: Request, res: Response) {
-        try {
-            const { id } = req.params;
-            const { temp_c, humidity, wind_ms, rain_mm, condition } = req.body;
-            const { id: userId, email } = req.user!;
-
-            // Check if record exists
-            const existingWeather = await prisma.weather.findUnique({
-                where: { id }
-            });
-
-            if (!existingWeather) {
-                return res.status(404).json({ error: 'Weather record not found' });
+            if (!response.ok) {
+                throw new Error(`Weather API failed: ${response.status}`);
             }
 
-            const weather = await prisma.weather.update({
-                where: { id },
-                data: {
-                    ...(temp_c !== undefined && { temp_c }),
-                    ...(humidity !== undefined && { humidity }),
-                    ...(wind_ms !== undefined && { wind_ms }),
-                    ...(rain_mm !== undefined && { rain_mm }),
-                    ...(condition !== undefined && { condition }),
-                    ingestSource: `updated_by_user_${userId}` // Track who updated
-                },
-                include: {
-                    location: true
-                }
-            });
+            const data = await response.json();
+            const current = data.current;
 
-            console.log(`Weather record ${id} updated by user ${email} (ID: ${userId})`);
-
-            res.json({
-                success: true,
-                data: weather,
-                updatedBy: { userId, email }
-            });
-        } catch (error) {
-            console.error('Error updating weather record:', error);
-            res.status(500).json({ error: 'Failed to update weather record' });
-        }
-    }
-
-    // DELETE /api/weather/:id - Delete weather record
-    static async deleteWeather(req: Request, res: Response) {
-        try {
-            const { id } = req.params;
-            const { id: userId, email } = req.user!;
-
-            // Check if record exists
-            const existingWeather = await prisma.weather.findUnique({
-                where: { id }
-            });
-
-            if (!existingWeather) {
-                return res.status(404).json({ error: 'Weather record not found' });
+            if (!current) {
+                throw new Error("No current data returned from API");
             }
 
-            await prisma.weather.delete({
-                where: { id }
-            });
+            const record = {
+                location_id: String(location.id),
+                timestamp: new Date(current.time),
+                temperature: Number(current.temperature_2m ?? 0),
+                humidity: Number(current.relative_humidity_2m ?? 0),
+                rain_mm: Number(current.precipitation ?? 0),
+                wind_speed: Number(current.wind_speed_10m ?? 0),
+                weather_code: Number(current.weather_code ?? 0),
+                granularity: "hourly",
+            };
 
-            console.log(`Weather record ${id} deleted by user ${email} (ID: ${userId})`);
-
-            res.json({
-                success: true,
-                message: 'Weather record deleted successfully',
-                deletedBy: { userId, email }
-            });
-        } catch (error) {
-            console.error('Error deleting weather record:', error);
-            res.status(500).json({ error: 'Failed to delete weather record' });
-        }
-    }
-
-    // GET /api/weather/user/stats - Get weather stats for current user
-    static async getUserStats(req: Request, res: Response) {
-        try {
-            const { id: userId, email } = req.user!;
-
-            // Count total weather records created by this user
-            const totalRecords = await prisma.weather.count({
+            const result = await prisma.weather.upsert({
                 where: {
-                    ingestSource: {
-                        contains: userId
-                    }
-                }
+                    location_id_timestamp_granularity: {
+                        location_id: record.location_id,
+                        timestamp: record.timestamp,
+                        granularity: record.granularity,
+                    },
+                },
+                update: record,
+                create: record,
             });
 
-            // Get latest weather records created by this user
-            const latestRecords = await prisma.weather.findMany({
-                where: {
-                    ingestSource: {
-                        contains: userId
-                    }
-                },
-                include: {
-                    location: true
-                },
-                orderBy: {
-                    createdAt: 'desc'
-                },
-                take: 5
-            });
+            if (!result) {
+                throw new Error("Failed to upsert weather record");
+            }
 
-            res.json({
-                success: true,
-                data: {
-                    user: { userId, email },
-                    stats: {
-                        totalRecordsCreated: totalRecords,
-                        latestRecords
-                    }
-                }
+            return res.status(200).json({
+                message: "Weather data updated",
+                current: record,
             });
-        } catch (error) {
-            console.error('Error fetching user stats:', error);
-            res.status(500).json({ error: 'Failed to fetch user stats' });
+        } catch (err: any) {
+            console.error("fetchWeatherNowByLocation error:", err);
+            return res.status(500).json({ error: err.message });
         }
     }
 }

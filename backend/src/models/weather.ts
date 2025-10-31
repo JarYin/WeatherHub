@@ -38,3 +38,14 @@ export interface CitySearchResult {
   lat: number;
   lon: number;
 }
+
+export type WeatherRecord = {
+  location_id: string;
+  timestamp: Date;
+  temperature: number;
+  humidity: number;
+  rain_mm: number;
+  wind_speed: number;
+  weather_code: number;
+  granularity: "hourly" | "daily" | "current";
+};

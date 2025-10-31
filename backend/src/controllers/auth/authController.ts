@@ -87,10 +87,7 @@ export class AuthController {
 
     async getMe(req: Request, res: Response, next: NextFunction) {
         try {
-            // Get user ID from JWT middleware (req.user is set by authMiddleware)
             const userId = req.user?.id;
-            console.log('getMe userId:', userId);
-            console.log('getMe req.user:', req.user);
 
             if (!userId) {
                 return res.status(401).json({ success: false, error: { message: 'User not authenticated' } });
