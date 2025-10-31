@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { MapPin, Search } from "lucide-react";
 import L from "leaflet";
 import { createLocation } from "../api/locationApi";
+import { toast } from "sonner";
 
 interface LocationMapPickerProps {
   onLocationSelect: (submit: boolean) => void;
@@ -158,16 +159,27 @@ export function LocationMapPicker({
   };
 
   const handleConfirm = async () => {
-    if (selectedCoords && cityName && timezone) {
-      await createLocation({
+  if (selectedCoords && cityName && timezone) {
+    try {
+      const response = await createLocation({
         name: cityName,
         lat: selectedCoords.lat,
         lon: selectedCoords.lon,
-        timezone: timezone,
+        timezone,
       });
+
+      if (!response.success) {
+        toast.error(`Failed to create location: ${response.error ?? ""}`);
+        return;
+      }
+
       onLocationSelect(true);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(message);
     }
-  };
+  }
+};
 
   return (
     <Card className="border-border/50">

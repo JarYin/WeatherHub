@@ -56,6 +56,12 @@ export class LocationController {
       }
 
       const uniqueKey = { userId, name };
+      const count = await prisma.location.count({ where: { userId } });
+
+      if (count >= 10) {
+        return res.status(400).json({ error: "can't create more than 10 locations" });
+      }
+
       const newLocation = await prisma.location.upsert({
         where: {
           userId_name: uniqueKey,
@@ -74,13 +80,13 @@ export class LocationController {
         },
       });
 
-      if(!newLocation) {
+      if (!newLocation) {
         return res.status(500).json({ error: "Failed to create or update location" });
       }
 
       await controller.insertWeatherByLocation(newLocation);
       await startSummaryWeatherScheduler();
-      
+
       res.status(201).json({ success: true, data: newLocation });
     } catch (error) {
       console.error("Error creating/updating location:", error);

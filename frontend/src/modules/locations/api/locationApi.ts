@@ -2,9 +2,19 @@ import apiClient from "@/lib/axios";
 import { Location } from "../type";
 
 export const createLocation = async (data: Location) => {
-    const response = await apiClient.post("/locations", data);
-    return response.data;
-}
+    try {
+        const response = await apiClient.post("/locations", data);
+        return response.data;
+    } catch (error: any) {
+        const backendMessage =
+            error.response?.data?.error ||
+            error.response?.data?.message ||
+            error.message ||
+            "Unknown error occurred";
+
+        throw new Error(backendMessage);
+    }
+};
 
 export const fetchLocations = async (page: number, limit: number): Promise<{ data: Location[]; pagination: any }> => {
     const response = await apiClient.get(`/locations?page=${page}&limit=${limit}`);
