@@ -90,9 +90,23 @@ WeatherHub/
 
 - `GET /health` - Health check
 - `GET /api` - API information
-- `GET /api/weather/current/:city` - Current weather
-- `GET /api/weather/forecast/:city` - Weather forecast
-- `GET /api/weather/search/:query` - Search cities
+- `GET /api/locations` - Fetch All Locations
+- `GET /api/weather/latest` - Fetch Weather Latest
+- `GET /api/weather/hourly` - Fetch Weather Hourly Latest 24 hour
+- `GET /api/weather/daily` - Fetch Weather Daily
+- `GET /api/weather/export/csv` - Export CSV Weather
+- `GET /api/compare` - Fetch Compared Locations
+
+- `POST /api/locations` - Create Location
+- `POST /api/weather/ingest/run` - Fetch Weather Now
+- `POST /api/weather/fetch` - Extract data from open-meteo and save it to the database
+- `POST /api/compare` - Create Compare Locations
+
+- `DELETE /api/locations/:id` - Delete Location
+- `DELETE /api/compare/:locationId` - Delete Compare Location
+
+- `PUT /api/locations/:id/default` - Set Default Location
+- `PUT /api/locations/:id` - Update Location
 
 ## 🌍 Environment Variables
 
