@@ -20,7 +20,7 @@ router.get('/', (req, res) => {
     endpoints: {
       health: '/health',
       auth: '/api/auth',
-      location: '/api/location',
+      location: '/api/locations',
       weather: '/api/weather', 
       compare: '/api/compare',
     },
