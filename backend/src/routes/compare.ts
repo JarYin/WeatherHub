@@ -1,4 +1,4 @@
-import { CompareController } from "controllers/compare/compareController";
+import { CompareController } from "../controllers/compare/compareController";
 import { Router } from "express";
 import { authMiddleware } from "middleware/authMiddleware";
 
