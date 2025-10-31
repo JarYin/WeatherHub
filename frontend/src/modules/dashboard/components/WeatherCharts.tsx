@@ -129,7 +129,6 @@ export default function WeatherCharts() {
     dailyEnd.setHours(23, 59, 59, 999);
 
     try {
-      console.log("Fetching latest weather", selectedLocation.id);
       const [hourly, daily, latest] = await Promise.all([
         weatherAPI.getHourly(
           selectedLocation.id,
@@ -166,7 +165,6 @@ export default function WeatherCharts() {
         if (!locationId) return;
         const response = await weatherAPI.getLatest(locationId);
         if (response) setCurrentWeather(response as Weather);
-        console.log("Latest weather updated: ", response);
       } catch (error) {
         console.error("Error fetching latest weather:", error);
       }

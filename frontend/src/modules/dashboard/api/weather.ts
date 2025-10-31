@@ -41,7 +41,6 @@ export const weatherAPI = {
     ingestWeatherData: async (location: Location) => {
         try {
             const userIP = await getUserIP();
-            console.log("User IP for rate limiting:", userIP);
             await rateLimiter.consume(userIP, 1);
             const response = await apiClient.post("/weather/ingest/run", { location });
             return { status: response.status, data: response.data };

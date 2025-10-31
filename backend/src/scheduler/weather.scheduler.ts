@@ -55,9 +55,9 @@ async function fetchAndSaveWeatherForLocation(locationId: string) {
         };
 
         await prisma.weather.create({ data: record });
-        console.log(`✅ Saved current weather for ${loc.name}`);
+        console.log(`Saved current weather for ${loc.name}`);
     } catch (err) {
-        console.error(`❌ Error fetching current weather for ${loc.name}:`, err);
+        console.error(`Error fetching current weather for ${loc.name}:`, err);
     }
 }
 
@@ -123,9 +123,9 @@ async function summaryWeather(locationId: string, date: string) {
                 wind_max: summary.wind_max,
             }
         });
-        console.log(`✅ Daily summary saved for location ${locationId} on ${summary.date}`);
+        console.log(`Daily summary saved for location ${locationId} on ${summary.date}`);
     } catch (err) {
-        console.error(`❌ Error summarizing weather for location ${locationId} on ${date}:`, err);
+        console.error(`Error summarizing weather for location ${locationId} on ${date}:`, err);
     }
 }
 
@@ -134,15 +134,15 @@ async function summaryWeather(locationId: string, date: string) {
  * รันทุก ๆ 1–3 ชั่วโมง แล้วสุ่ม interval per location
  */
 export function startWeatherScheduler() {
-    console.log("🌦️ Weather Scheduler started...");
+    console.log("Weather Scheduler started...");
 
     prisma.location.findMany({ where: { isActive: true } }).then((locations) => {
         locations.forEach((loc) => {
             const cronExpr = `0 * * * *`;
-            console.log(`📅 Schedule for ${loc.name}: ${cronExpr}`);
+            console.log(`Schedule for ${loc.name}: ${cronExpr}`);
 
             cron.schedule(cronExpr, async () => {
-                console.log(`🕒 Running scheduled job for ${loc.name} at ${localTimeISO()}`);
+                console.log(`Running scheduled job for ${loc.name} at ${localTimeISO()}`);
                 try {
                     await fetchAndSaveWeatherForLocation(loc.id);
                 } catch (err) {
@@ -155,23 +155,23 @@ export function startWeatherScheduler() {
 }
 
 export function startSummaryWeatherScheduler() {
-    console.log("🌦️ Weather Summary Scheduler started...");
+    console.log("Weather Summary Scheduler started...");
 
     prisma.location.findMany({ where: { isActive: true } }).then((locations) => {
         locations.forEach((loc) => {
             const cronExpr = `5 23 * * *`;
-            console.log(`📅 Summary Schedule for ${loc.name}: ${cronExpr}`);
+            console.log(`Summary Schedule for ${loc.name}: ${cronExpr}`);
 
             cron.schedule(cronExpr, async () => {
-                console.log(`🕒 Running daily summary job for ${loc.name} at ${localTimeISO()}`);
+                console.log(`Running daily summary job for ${loc.name} at ${localTimeISO()}`);
                 try {
                     await summaryWeather(loc.id, localTimeISO());
                 } catch (err) {
-                    console.error(`❌ Daily summary job error for ${loc.name}:`, err);
+                    console.error(`Daily summary job error for ${loc.name}:`, err);
                 }
             });
             summaryWeather(loc.id, localTimeISO()).catch((err) => {
-                console.error(`❌ Initial daily summary error for ${loc.name}:`, err);
+                console.error(`Initial daily summary error for ${loc.name}:`, err);
             });
         });
     });

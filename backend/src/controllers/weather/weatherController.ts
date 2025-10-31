@@ -31,7 +31,6 @@ export class WeatherController {
         }
 
         const userIP = getUserIP(req);
-        console.log("User IP for rate limiting:", userIP);
         await rateLimiter.consume(userIP, 1);
 
         const startOfHour = new Date();

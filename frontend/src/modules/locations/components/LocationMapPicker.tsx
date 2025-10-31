@@ -43,7 +43,6 @@ export function LocationMapPicker({
       const timezoneObject = data.localityInfo.informative?.find(
         (item: any) => item.description === "time zone"
       );
-      console.log("Fetched timezone object:", timezoneObject);
       if (timezoneObject && timezoneObject.name) {
         setTimezone(timezoneObject.name);
       } else {
