@@ -11,6 +11,9 @@ router.post('/', (req, res) => {
 router.get('/', (req, res) => {
     CompareController.getComparedLocations(req, res);
 });
+router.delete('/:locationId', (req, res) => {
+    CompareController.deleteComparedLocation(req, res);
+});
 
 
 export default router;

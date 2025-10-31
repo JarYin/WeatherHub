@@ -106,4 +106,30 @@ export class CompareController {
             return res.status(500).json({ message: "Internal server error" });
         }
     }
+    static async deleteComparedLocation(req: Request, res: Response) {
+        try {
+            const userId = req.user?.id;
+            const { locationId } = req.params;
+
+            if (!userId) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+
+            const deletedCompare = await prisma.compares.deleteMany({
+                where: {
+                    UserId: userId,
+                    locationId: locationId,
+                },
+            });
+
+            if (deletedCompare.count === 0) {
+                return res.status(404).json({ message: "No comparison record found to delete" });
+            }
+
+            return res.status(200).json({ message: "Comparison record deleted successfully" });
+        } catch (error) {
+            console.error("Error deleting compared location:", error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
 }

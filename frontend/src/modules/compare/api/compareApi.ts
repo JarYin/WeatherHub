@@ -9,4 +9,8 @@ export const compareAPI = {
         const response = await apiClient.get("/compare");
         return response.data;
     },
+    deleteComparedLocation: async (locationId: string) => {
+        const response = await apiClient.delete(`/compare/${locationId}`);
+        return response.data;
+    }
 }

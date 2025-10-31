@@ -24,6 +24,7 @@ import type { Location } from "@/modules/locations/type";
 import { compareAPI } from "../api/compareApi";
 import CompareWeather from "./CompareWeather";
 import { weatherAPI } from "@/modules/dashboard/api/weather";
+import { Weather } from "@/lib/type";
 
 const LOCATION_PAGE_LIMIT = 10;
 
@@ -37,6 +38,8 @@ export default function SelectedLocations() {
   const [isLoading, setIsLoading] = useState(false);
   const [compareLocations, setCompareLocations] = useState<Location[]>([]);
   const [weatherData, setWeatherData] = useState<any>([]);
+  const [weatherHourlyData, setWeatherHourlyData] = useState<Weather[][]>([]);
+  const [addState, setAddState] = useState(false);
 
   const loadMoreLocations = useCallback(async () => {
     if (isLoading || !hasMore) {
@@ -76,6 +79,8 @@ export default function SelectedLocations() {
       }
       setCompareLocations(response.data);
       await fetchWeatherData(response.data);
+      await fetchWeatherHourly(response.data);
+      setAddState(false);
     } catch (error) {
       const errMsg =
         (error as any)?.response?.data?.message ||
@@ -84,25 +89,74 @@ export default function SelectedLocations() {
     }
   }, [compareLocations]);
 
-  const fetchWeatherData = useCallback(async (location: Location[]) => {
-    try {
-        console.log("Fetching weather data for compared locations:", location);
-      const weatherPromises = location.map((loc) =>
-        weatherAPI.getLatest(loc.location?.id ?? "")
-      );
-      const weatherResults = await Promise.all(weatherPromises);
-      setWeatherData(weatherResults);
+  const fetchWeatherData = useCallback(
+    async (location: Location[]) => {
+      try {
+        const weatherPromises = location.map((loc) =>
+          weatherAPI.getLatest(loc.location?.id ?? "")
+        );
+        const weatherResults = await Promise.all(weatherPromises);
+        setWeatherData(weatherResults);
+      } catch (error) {
+        console.error(
+          "Error fetching weather data for compared locations:",
+          error
+        );
+      }
+    },
+    [compareLocations]
+  );
 
-      console.log("Completed fetching weather data for compared locations:", weatherResults);
+  const fetchWeatherHourly = useCallback(async (locations: Location[]) => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(now);
+    end.setHours(23, 0, 0, 0);
+    const startISO = start.toISOString();
+    const endISO = end.toISOString();
+
+    try {
+      const locationsWithId = locations.filter(
+        (loc): loc is Location & { location: { id: string } } =>
+          Boolean(loc.location?.id)
+      );
+
+      if (locationsWithId.length === 0) {
+        setWeatherHourlyData([]);
+        return;
+      }
+
+      const weatherPromises = locationsWithId.map((loc) =>
+        weatherAPI.getHourly(loc.location.id, startISO, endISO)
+      );
+
+      const weatherResponses = await Promise.all(weatherPromises);
+      const weather = weatherResponses.map((response) => (response as any).data ?? response);
+      setWeatherHourlyData(weather as Weather[][]);
     } catch (error) {
-      console.error("Error fetching weather data for compared locations:", error);
+      console.error("Error fetching weather data:", error);
     }
   }, [compareLocations]);
 
   useEffect(() => {
     loadMoreLocations();
     fetchComparedLocations();
-  }, []);
+  }, [addState]);
+
+  const handleDelete = async (locationId: string) => {
+    try {
+      await compareAPI.deleteComparedLocation(locationId).then(() => {
+        setCompareLocations((prev) =>
+          prev.filter((loc) => loc.location?.id !== locationId)
+        );
+        toast.success("Location removed from comparison.");
+      });
+    } catch (error) {
+      console.error("Error deleting compared location:", error);
+      toast.error("Failed to delete compared location. Please try again.");
+    }
+  }
 
   return (
     <>
@@ -121,12 +175,12 @@ export default function SelectedLocations() {
             <div className="flex gap-2 mb-2">
               {compareLocations.map((loc) => (
                 <div
-                  key={loc.id}
+                  key={loc.location?.id}
                   className="p-2 border border-border rounded-md bg-secondary/50 text-xs flex items-center hover:bg-secondary/70 transition-colors"
                 >
                   <MapPin className="mr-1 h-3 w-3" />
                   {loc?.location?.name}
-                  <X className="ml-3 h-3 w-3 cursor-pointer hover:text-red-500" />
+                  <X className="ml-3 h-3 w-3 cursor-pointer hover:text-red-500" onClick={() => handleDelete(loc.location?.id ?? "")} />
                 </div>
               ))}
             </div>
@@ -141,11 +195,16 @@ export default function SelectedLocations() {
             hasMore={hasMore}
             isLoading={isLoading}
             setCompareLocations={setCompareLocations}
+            setAddState={setAddState}
           />
         </CardContent>
       </Card>
       <div className="mt-4">
-        <CompareWeather location={compareLocations} />
+        <CompareWeather
+          location={compareLocations}
+          weathers={weatherData}
+          weatherHourly={weatherHourlyData}
+        />
       </div>
     </>
   );
@@ -161,6 +220,7 @@ function LocationPopover({
   hasMore,
   isLoading,
   setCompareLocations,
+  setAddState
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
@@ -171,6 +231,7 @@ function LocationPopover({
   hasMore: boolean;
   isLoading: boolean;
   setCompareLocations: React.Dispatch<React.SetStateAction<Location[]>>;
+  setAddState: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const [locationId, setLocationId] = useState("");
   // Infinite Scroll
@@ -203,6 +264,7 @@ function LocationPopover({
       toast.success(`Location "${name}" added for comparison.`);
       setValue("");
       setLocationId("");
+      setAddState(true);
     } catch (error) {
       const errMsg =
         (error as any)?.response?.data?.message || "Failed to add location";
