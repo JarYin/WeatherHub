@@ -73,9 +73,6 @@ function CardWeather({ location, weathers, weatherHourly }: CardWeatherProps) {
       (a, b) => new Date(a.utc).getTime() - new Date(b.utc).getTime()
     );
   })();
-
-  console.log("weatherHourly:", weatherHourly);
-  console.log("location:", location);
   return (
     <>
       <div className="flex gap-2 flex-wrap">
@@ -151,12 +148,9 @@ function CardWeather({ location, weathers, weatherHourly }: CardWeatherProps) {
               <XAxis dataKey="time" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                  fontSize: 13,
-                }}
+
+                cursor={{ fill: "rgba(0, 0, 0, 0.05)" }}
+                labelStyle={{ color: "#000" }}
               />
               <Legend wrapperStyle={{ fontSize: 13 }} />
 
@@ -164,21 +158,19 @@ function CardWeather({ location, weathers, weatherHourly }: CardWeatherProps) {
                 const name = loc.location?.name || `Location-${index}`;
                 return (
                   <React.Fragment key={index}>
-                    {/* Temperature: สีแดง */}
                     <Bar
                       key={`${name}_temp`}
                       dataKey={`${name}_temp`}
                       name={`${name} Temperature (°C)`}
-                      fill="#ef4444" // 🔴 สีแดง
+                      fill="#ef4444"
                       barSize={20}
                       radius={[4, 4, 0, 0]}
                     />
-                    {/* Rainfall: สีฟ้า */}
                     <Bar
                       key={`${name}_rain`}
                       dataKey={`${name}_rain`}
                       name={`${name} Rainfall (mm)`}
-                      fill="#3b82f6" // 🔵 สีฟ้า
+                      fill="#3b82f6"
                       barSize={20}
                       radius={[4, 4, 0, 0]}
                     />
