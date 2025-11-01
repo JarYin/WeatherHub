@@ -107,37 +107,42 @@ export default function SelectedLocations() {
     [compareLocations]
   );
 
-  const fetchWeatherHourly = useCallback(async (locations: Location[]) => {
-    const now = new Date();
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(now);
-    end.setHours(23, 0, 0, 0);
-    const startISO = start.toISOString();
-    const endISO = end.toISOString();
+  const fetchWeatherHourly = useCallback(
+    async (locations: Location[]) => {
+      const now = new Date();
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(now);
+      end.setHours(23, 0, 0, 0);
+      const startISO = start.toISOString();
+      const endISO = end.toISOString();
 
-    try {
-      const locationsWithId = locations.filter(
-        (loc): loc is Location & { location: { id: string } } =>
-          Boolean(loc.location?.id)
-      );
+      try {
+        const locationsWithId = locations.filter(
+          (loc): loc is Location & { location: { id: string } } =>
+            Boolean(loc.location?.id)
+        );
 
-      if (locationsWithId.length === 0) {
-        setWeatherHourlyData([]);
-        return;
+        if (locationsWithId.length === 0) {
+          setWeatherHourlyData([]);
+          return;
+        }
+
+        const weatherPromises = locationsWithId.map((loc) =>
+          weatherAPI.getHourly(loc.location.id, startISO, endISO)
+        );
+
+        const weatherResponses = await Promise.all(weatherPromises);
+        const weather = weatherResponses.map(
+          (response) => (response as any).data ?? response
+        );
+        setWeatherHourlyData(weather as Weather[][]);
+      } catch (error) {
+        console.error("Error fetching weather data:", error);
       }
-
-      const weatherPromises = locationsWithId.map((loc) =>
-        weatherAPI.getHourly(loc.location.id, startISO, endISO)
-      );
-
-      const weatherResponses = await Promise.all(weatherPromises);
-      const weather = weatherResponses.map((response) => (response as any).data ?? response);
-      setWeatherHourlyData(weather as Weather[][]);
-    } catch (error) {
-      console.error("Error fetching weather data:", error);
-    }
-  }, [compareLocations]);
+    },
+    [compareLocations]
+  );
 
   useEffect(() => {
     loadMoreLocations();
@@ -156,14 +161,18 @@ export default function SelectedLocations() {
       console.error("Error deleting compared location:", error);
       toast.error("Failed to delete compared location. Please try again.");
     }
-  }
+  };
 
   return (
     <>
       <Card className="w-full shadow-sm hover:shadow-md transition-shadow bg-transparent border border-border">
         <CardHeader>
-          <h2 className="text-lg font-semibold">Selected Locations</h2>
-          <p className="text-muted-foreground">Choose locations to compare</p>
+          <h2 className="text-lg font-semibold max-md:text-center">
+            Selected Locations
+          </h2>
+          <p className="text-muted-foreground max-md:text-center">
+            Choose locations to compare
+          </p>
         </CardHeader>
 
         <CardContent>
@@ -178,9 +187,12 @@ export default function SelectedLocations() {
                   key={loc.location?.id}
                   className="p-2 border border-border rounded-md bg-secondary/50 text-xs flex items-center hover:bg-secondary/70 transition-colors"
                 >
-                  <MapPin className="mr-1 h-3 w-3" />
-                  {loc?.location?.name}
-                  <X className="ml-3 h-3 w-3 cursor-pointer hover:text-red-500" onClick={() => handleDelete(loc.location?.id ?? "")} />
+                  <MapPin className="mr-1 h-3 w-3 max-md:hidden" />
+                  <p>{loc?.location?.name}</p>
+                  <X
+                    className="ml-3 h-3 w-3 cursor-pointer hover:text-red-500"
+                    onClick={() => handleDelete(loc.location?.id ?? "")}
+                  />
                 </div>
               ))}
             </div>
@@ -220,7 +232,7 @@ function LocationPopover({
   hasMore,
   isLoading,
   setCompareLocations,
-  setAddState
+  setAddState,
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
@@ -274,56 +286,65 @@ function LocationPopover({
 
   return (
     <div className="flex items-center">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" aria-expanded={open}>
-            {value
-              ? locations.find((loc) => loc.name === value)?.name
-              : "Add location"}
-            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
+      <div className="">
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              className="flex justify-between w-full truncate"
+            >
+              <span className="truncate max-md:w-[150px]">
+                {value
+                  ? locations.find((loc) => loc.name === value)?.name
+                  : "Add location"}
+              </span>
+              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
 
-        <PopoverContent className="w-full p-0">
-          <Command>
-            <CommandInput placeholder="Search locations..." />
-            <CommandList onScroll={handleScroll}>
-              <CommandEmpty>No locations found.</CommandEmpty>
+          <PopoverContent className="w-full p-0">
+            <Command>
+              <CommandInput placeholder="Search locations..." />
+              <CommandList onScroll={handleScroll}>
+                <CommandEmpty>No locations found.</CommandEmpty>
 
-              <CommandGroup>
-                {locations.map((location) => (
-                  <CommandItem
-                    key={location.id}
-                    onSelect={() => {
-                      setValue(location.name);
-                      setLocationId(location.id ?? "");
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === location.name ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {location.name}
-                  </CommandItem>
-                ))}
-                {isLoading && (
-                  <CommandItem disabled className="opacity-50 justify-center">
-                    Loading more...
-                  </CommandItem>
-                )}
-                {!hasMore && locations.length > 0 && (
-                  <CommandItem disabled className="opacity-50 justify-center">
-                    No more locations.
-                  </CommandItem>
-                )}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                <CommandGroup>
+                  {locations.map((location) => (
+                    <CommandItem
+                      key={location.id}
+                      onSelect={() => {
+                        setValue(location.name);
+                        setLocationId(location.id ?? "");
+                        setOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          value === location.name ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {location.name}
+                    </CommandItem>
+                  ))}
+                  {isLoading && (
+                    <CommandItem disabled className="opacity-50 justify-center">
+                      Loading more...
+                    </CommandItem>
+                  )}
+                  {!hasMore && locations.length > 0 && (
+                    <CommandItem disabled className="opacity-50 justify-center">
+                      No more locations.
+                    </CommandItem>
+                  )}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
 
       <Button
         onClick={() => handlerSubmit(value, locationId)}
