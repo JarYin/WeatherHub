@@ -1,9 +1,11 @@
 import cron from 'node-cron';
-import { Location, PrismaClient, Weather } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { fetchWeatherApi } from 'openmeteo';
 import { localTimeISO } from '../lib/timezone';
 
 const prisma = new PrismaClient();
+type Location = Prisma.LocationGetPayload<{}>;
+type Weather = Prisma.WeatherGetPayload<{}>;
 
 /**
  * ฟังก์ชันหลักที่ดึงข้อมูลและบันทึกลง DB
@@ -85,9 +87,17 @@ async function summaryWeather(locationId: string, date: string) {
             throw new Error("No weather data found for the specified date");
         }
 
-        const temperatures = response.map((r: Weather) => r.temperature).filter((t): t is number => t !== null);
-        const winds = response.map((r: Weather) => r.wind_speed).filter((w): w is number => w !== null);
-        const rainfalls = response.map((r: Weather) => r.rain_mm).filter((rf): rf is number => rf !== null);
+        const temperatures = response
+            .map((r: Prisma.WeatherGetPayload<{}>) => r.temperature)
+            .filter((t): t is number => t !== null);
+
+        const winds = response
+            .map((r: Prisma.WeatherGetPayload<{}>) => r.wind_speed)
+            .filter((w): w is number => w !== null);
+
+        const rainfalls = response
+            .map((r: Prisma.WeatherGetPayload<{}>) => r.rain_mm)
+            .filter((rf): rf is number => rf !== null);
 
         const summary = {
             date: targetDate.toISOString().split('T')[0],
@@ -134,45 +144,45 @@ async function summaryWeather(locationId: string, date: string) {
  * รันทุก ๆ 1–3 ชั่วโมง แล้วสุ่ม interval per location
  */
 export function startWeatherScheduler() {
-  console.log("Weather Scheduler started...");
+    console.log("Weather Scheduler started...");
 
-  prisma.location.findMany({ where: { isActive: true } }).then((locations) => {
-    locations.forEach((loc) => {
-      const cronExpr = `0 * * * *`;
-      console.log(`Schedule for ${loc.name}: ${cronExpr}`);
+    prisma.location.findMany({ where: { isActive: true } }).then((locations) => {
+        locations.forEach((loc) => {
+            const cronExpr = `0 * * * *`;
+            console.log(`Schedule for ${loc.name}: ${cronExpr}`);
 
-      cron.schedule(cronExpr, async () => {
-        console.log(`Running scheduled job for ${loc.name} at ${localTimeISO()}`);
-        try {
-          await fetchAndSaveWeatherForLocation(loc.id);
-        } catch (err) {
-          console.error(`❌ Cron job error for ${loc.name}:`, err);
-        }
-      });
+            cron.schedule(cronExpr, async () => {
+                console.log(`Running scheduled job for ${loc.name} at ${localTimeISO()}`);
+                try {
+                    await fetchAndSaveWeatherForLocation(loc.id);
+                } catch (err) {
+                    console.error(`❌ Cron job error for ${loc.name}:`, err);
+                }
+            });
+        });
     });
-  });
 }
 
 export function startSummaryWeatherScheduler() {
-  console.log("Weather Summary Scheduler started...");
+    console.log("Weather Summary Scheduler started...");
 
-  prisma.location.findMany({ where: { isActive: true } }).then((locations: any[]) => {
-    locations.forEach((loc: any) => {
-      const cronExpr = `5 23 * * *`;
-      console.log(`Summary Schedule for ${loc.name}: ${cronExpr}`);
+    prisma.location.findMany({ where: { isActive: true } }).then((locations: Location[]) => {
+        locations.forEach((loc: Location) => {
+            const cronExpr = `5 23 * * *`;
+            console.log(`Summary Schedule for ${loc.name}: ${cronExpr}`);
 
-      cron.schedule(cronExpr, async () => {
-        console.log(`Running daily summary job for ${loc.name} at ${localTimeISO()}`);
-        try {
-          await summaryWeather(loc.id, localTimeISO());
-        } catch (err) {
-          console.error(`Daily summary job error for ${loc.name}:`, err);
-        }
-      });
+            cron.schedule(cronExpr, async () => {
+                console.log(`Running daily summary job for ${loc.name} at ${localTimeISO()}`);
+                try {
+                    await summaryWeather(loc.id, localTimeISO());
+                } catch (err) {
+                    console.error(`Daily summary job error for ${loc.name}:`, err);
+                }
+            });
 
-      summaryWeather(loc.id, localTimeISO()).catch((err) => {
-        console.error(`Initial daily summary error for ${loc.name}:`, err);
-      });
+            summaryWeather(loc.id, localTimeISO()).catch((err) => {
+                console.error(`Initial daily summary error for ${loc.name}:`, err);
+            });
+        });
     });
-  });
 }
