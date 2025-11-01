@@ -85,9 +85,9 @@ async function summaryWeather(locationId: string, date: string) {
             throw new Error("No weather data found for the specified date");
         }
 
-        const temperatures = response.map((r: Weather) => r.temperature).filter(t => t !== null) as number[];
-        const winds = response.map((r: Weather) => r.wind_speed).filter(w => w !== null) as number[];
-        const rainfalls = response.map((r: Weather) => r.rain_mm).filter(rf => rf !== null) as number[];
+        const temperatures = response.map((r: Weather) => r.temperature).filter((t): t is number => t !== null);
+        const winds = response.map((r: Weather) => r.wind_speed).filter((w): w is number => w !== null);
+        const rainfalls = response.map((r: Weather) => r.rain_mm).filter((rf): rf is number => rf !== null);
 
         const summary = {
             date: targetDate.toISOString().split('T')[0],
@@ -156,8 +156,8 @@ export function startWeatherScheduler() {
 export function startSummaryWeatherScheduler() {
   console.log("Weather Summary Scheduler started...");
 
-  prisma.location.findMany({ where: { isActive: true } }).then((locations: Location[]) => {
-    locations.forEach((loc: Location) => {
+  prisma.location.findMany({ where: { isActive: true } }).then((locations: any[]) => {
+    locations.forEach((loc: any) => {
       const cronExpr = `5 23 * * *`;
       console.log(`Summary Schedule for ${loc.name}: ${cronExpr}`);
 
