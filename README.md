@@ -114,7 +114,6 @@ WeatherHub/
 NODE_ENV=development
 PORT=5000
 FRONTEND_URL=http://localhost:3000
-WEATHER_API_KEY=your_openweathermap_api_key
 DATABASE_URL="your_database_url"
 DATABASE_URL_UNPOOLED=""
 PGHOST=""
