@@ -1,7 +1,7 @@
-import express from "express";
-import { IngestJobController } from "../controllers/ingestJob/ingestJobController";
+import { Router } from "express";
+import { IngestJobController } from '../controllers/ingestJob/ingestJobController';
 
-const router = express.Router();
+const router = Router();
 
 router.post("/", IngestJobController.create);
 
