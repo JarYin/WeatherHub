@@ -88,16 +88,16 @@ async function summaryWeather(locationId: string, date: string) {
         }
 
         const temperatures = response
-            .map((r: Prisma.WeatherGetPayload<{}>) => r.temperature)
-            .filter((t): t is number => t !== null);
+            .map((r: Weather) => r?.temperature)
+            .filter((t): t is number => t !== null && t !== undefined);
 
         const winds = response
-            .map((r: Prisma.WeatherGetPayload<{}>) => r.wind_speed)
-            .filter((w): w is number => w !== null);
+            .map((r: Weather) => r?.wind_speed)
+            .filter((w): w is number => w !== null && w !== undefined);
 
         const rainfalls = response
-            .map((r: Prisma.WeatherGetPayload<{}>) => r.rain_mm)
-            .filter((rf): rf is number => rf !== null);
+            .map((r: Weather) => r?.rain_mm)
+            .filter((rf): rf is number => rf !== null && rf !== undefined);
 
         const summary = {
             date: targetDate.toISOString().split('T')[0],

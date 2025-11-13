@@ -29,7 +29,6 @@ model Location {
   createdAt  DateTime        @default(now())
   weather    Weather[]
   summary    DailySummary[]
-  ingestJobs IngestJob[]
   compares   Compares[]
   user       User?          @relation(fields: [userId], references: [id])
   @@unique([userId, name])
@@ -64,21 +63,20 @@ model DailySummary {
 
   location    Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
-  @@unique([locationId, date])       // สรุปต่อวันไม่ซ้ำ
+  @@unique([locationId, date]) 
   @@index([date])
 }
 
 model IngestJob {
   id          String      @id @default(uuid())
-  locationId  String
-  startedAt   DateTime?
-  endedAt     DateTime?
   status      String?
   note        String?
+  source      String?      @default("unknown")
+  createdAt   DateTime    @default(now())
 
-  location    Location?   @relation(fields: [locationId], references: [id])
-  @@index([startedAt])
+  @@index([createdAt])
 }
+
 
 model Compares {
   id          String   @id @default(uuid())

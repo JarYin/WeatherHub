@@ -3,6 +3,7 @@ import weatherRoutes from './weatherRoutes';
 import authRoutes from './auth';
 import locationRoutes from './location';
 import compareRoutes from './compare';
+import ingestJobRoutes from './ingestJob';
 
 const router = Router();
 
@@ -10,7 +11,8 @@ const router = Router();
 router.use('/weather', weatherRoutes);
 router.use('/auth', authRoutes);
 router.use('/locations', locationRoutes);
-router.use('/compare', compareRoutes)
+router.use('/compare', compareRoutes);
+router.use('/ingest-job', ingestJobRoutes);
 
 // Default API info
 router.get('/', (req, res) => {

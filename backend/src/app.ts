@@ -25,7 +25,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS configuration
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
@@ -41,7 +40,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Cookie parsing middleware
 app.use(cookieParser());
 
-// Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
@@ -50,13 +48,10 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes
+
 app.use('/api', apiRoutes);
 
-// 404 handler
 app.use(notFound);
-
-// Error handling middleware
 app.use(errorHandler);
 
 export default app;
