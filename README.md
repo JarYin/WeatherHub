@@ -1,8 +1,8 @@
-# 🌤️ WeatherHub
+# WeatherHub
 
 A modern, full-stack weather application built with Next.js and Express.js in a monorepo architecture.
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 WeatherHub/
@@ -20,7 +20,7 @@ WeatherHub/
 └── README.md          # This file
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - [Bun](https://bun.sh) (recommended) or Node.js 18+
@@ -58,7 +58,7 @@ WeatherHub/
    - Frontend: http://localhost:3000
    - Backend: http://localhost:5000
 
-## 📜 Available Scripts
+## Available Scripts
 
 ### Root Level (Monorepo)
 - `bun run dev` - Start both frontend and backend in development mode
@@ -74,7 +74,7 @@ WeatherHub/
 - `bun run build:frontend` - Build only frontend
 - `bun run build:backend` - Build only backend
 
-## 🔧 Development
+## Development
 
 ### Frontend (Next.js)
 - Location: `./frontend/`
@@ -86,7 +86,7 @@ WeatherHub/
 - Port: `5000`
 - Technologies: Express.js, TypeScript, Bun runtime
 
-## 📡 API Endpoints
+## API Endpoints
 
 - `GET /health` - Health check
 - `GET /api` - API information
@@ -99,7 +99,6 @@ WeatherHub/
 
 - `POST /api/locations` - Create Location
 - `POST /api/weather/ingest/run` - Fetch Weather Now
-- `POST /api/weather/fetch` - Extract data from open-meteo and save it to the database
 - `POST /api/compare` - Create Compare Locations
 
 - `DELETE /api/locations/:id` - Delete Location
@@ -108,14 +107,13 @@ WeatherHub/
 - `PUT /api/locations/:id/default` - Set Default Location
 - `PUT /api/locations/:id` - Update Location
 
-## 🌍 Environment Variables
+## Environment Variables
 
 ### Backend
 ```env
 NODE_ENV=development
 PORT=5000
 FRONTEND_URL=http://localhost:3000
-WEATHER_API_KEY=your_openweathermap_api_key
 DATABASE_URL="your_database_url"
 DATABASE_URL_UNPOOLED=""
 PGHOST=""
@@ -146,7 +144,7 @@ JWT_SECRET=""
 NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
@@ -155,11 +153,11 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
 5. Push to the branch: `git push origin feature/amazing-feature`
 6. Open a Pull Request
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [OpenWeatherMap](https://openweathermap.org/) for weather data
 - [Next.js](https://nextjs.org/) for the React framework
