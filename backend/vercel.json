@@ -1,6 +1,9 @@
 {
   "version": 2,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.ts" }
+    {
+      "source": "/(.*)",
+      "destination": "/dist/app.js"
+    }
   ]
 }
