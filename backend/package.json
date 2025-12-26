@@ -1,13 +1,13 @@
 {
   "name": "backend",
-  "main": "dist/app.js",
+  "main": "src/app.js",
   "type": "module",
   "private": true,
   "scripts": {
     "dev": "bun --watch src/server.ts",
     "dev:nodemon": "bunx nodemon --watch src --ext ts,js --exec \"bun run ./src/server.ts\"",
-    "build": "bunx prisma generate && bunx tsup src/app.ts --format esm --out-dir dist --clean",
-    "start": "node dist/app.js",
+    "build": "bunx prisma generate && bunx tsup src/app.ts --format esm --out-dir src",
+    "start": "node src/app.js",
     "lint": "eslint src/**/*.ts",
     "test": "bun test"
   },
