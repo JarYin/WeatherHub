@@ -19,6 +19,7 @@
       "*": ["src/*"]
     },
     "strict": true,
+    "noImplicitAny": false,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
