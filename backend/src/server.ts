@@ -1,5 +1,5 @@
-import app from './app';
-import { startWeatherScheduler , startSummaryWeatherScheduler} from './scheduler/weather.scheduler';
+import app from './app.js';
+import { startWeatherScheduler , startSummaryWeatherScheduler} from './scheduler/weather.scheduler.js';
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {

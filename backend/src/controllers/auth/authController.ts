@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
-import type { User } from '../../models/user';
-import { AppError } from '../../utils/app-error';
+import type { User } from '../../models/user.js';
+import { AppError } from '../../utils/app-error.js';
 import bcrypt from 'bcryptjs';
-import prisma from '../../lib/prisma';
+import prisma from '../../lib/prisma.js';
 import jwt, { type Secret } from 'jsonwebtoken';
 
 const JWT_SECRET: Secret = process.env.JWT_SECRET!;

@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import weatherRoutes from './weatherRoutes';
-import authRoutes from './auth';
-import locationRoutes from './location';
-import compareRoutes from './compare';
-import ingestJobRoutes from './ingestJob';
+import weatherRoutes from './weatherRoutes.js';
+import authRoutes from './auth.js';
+import locationRoutes from './location.js';
+import compareRoutes from './compare.js';
+import ingestJobRoutes from './ingestJob.js';
 
 const router = Router();
 

@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { WeatherController } from '../controllers/weather/weatherController';
-import { authMiddleware } from '../middleware/authMiddleware';
+import { WeatherController } from '../controllers/weather/weatherController.js';
+import { authMiddleware } from '../middleware/authMiddleware.js';
 
 const router = Router();
 const controller = new WeatherController();

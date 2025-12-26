@@ -1,6 +1,6 @@
-import { CompareController } from '../controllers/compare/compareController';
+import { CompareController } from '../controllers/compare/compareController.js';
 import { Router } from 'express';
-import { authMiddleware } from '../middleware/authMiddleware';
+import { authMiddleware } from '../middleware/authMiddleware.js';
 
 const router = Router();
 router.use(authMiddleware)

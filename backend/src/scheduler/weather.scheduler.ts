@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { PrismaClient } from '@prisma/client';
 import { fetchWeatherApi } from 'openmeteo';
-import { localTimeISO } from '../lib/timezone';
+import { localTimeISO } from '../lib/timezone.js';
 
 const prisma = new PrismaClient();
 

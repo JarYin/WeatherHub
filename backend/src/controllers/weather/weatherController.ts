@@ -3,8 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import { fetchWeatherApi } from 'openmeteo';
 import { Parser } from 'json2csv';
 import fetch from 'node-fetch';
-import { Location } from '../../models/location';
-import { getUserIP } from '../../lib/ip';
+import { Location } from '../../models/location.js';
+import { getUserIP } from '../../lib/ip.js';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import NodeCache from "node-cache";
 
