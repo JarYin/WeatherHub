@@ -1,7 +1,6 @@
 {
   "name": "backend",
-  "module": "src/server.ts",
-  "main": "dist/server.js",
+  "main": "dist/app.js",
   "type": "module",
   "private": true,
   "scripts": {
